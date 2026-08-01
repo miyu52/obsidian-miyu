@@ -23,7 +23,6 @@ export interface PomodoroSettings {
 	notificationSound: boolean;
 	showStatusBar: boolean;
 	lowFrameRate: boolean;
-	// Runtime state
 	logs: PomodoroLog[];
 	activeTask: ActiveTask | null;
 	panelMode: PanelMode;
@@ -69,7 +68,6 @@ export const DEFAULT_SETTINGS: MiyuSettings = {
 	pomodoro: { ...DEFAULT_POMODORO },
 };
 
-/** Helper: get the current locale string from plugin settings. */
 function s(plugin: MiyuPlugin, key: string, vars?: Record<string, string>) {
 	return t(key, plugin.settings.language, vars);
 }
@@ -100,14 +98,22 @@ export class MiyuSettingTab extends PluginSettingTab {
 						plugin.settings.language = value as Locale;
 						await plugin.saveSettings();
 						plugin.reloadFeatures();
-						// Close and reopen pomodoro views to pick up new language
-						const leaves = plugin.app.workspace.getLeavesOfType(POMODORO_VIEW_TYPE);
-						plugin.app.workspace.detachLeavesOfType(POMODORO_VIEW_TYPE);
-						if (leaves.length > 0) {
-							const nl = plugin.app.workspace.getRightLeaf(false);
-							if (nl) await nl.setViewState({ type: POMODORO_VIEW_TYPE, active: false });
+						// Reopen pomodoro view with new language
+						const hadView =
+							plugin.app.workspace.getLeavesOfType(POMODORO_VIEW_TYPE)
+								.length > 0;
+						plugin.app.workspace.detachLeavesOfType(
+							POMODORO_VIEW_TYPE,
+						);
+						if (hadView) {
+							await plugin.app.workspace
+								.getLeaf('split')
+								.setViewState({
+									type: POMODORO_VIEW_TYPE,
+									active: false,
+								});
 						}
-						plugin.settingTab.display();
+						this.display();
 					}),
 			);
 
@@ -130,128 +136,153 @@ export class MiyuSettingTab extends PluginSettingTab {
 					}),
 			);
 
-		new Setting(containerEl)
-			.setName(s(plugin, 'settings.random-uppercase.name'))
-			.setDesc(s(plugin, 'settings.random-uppercase.desc'))
-			.addToggle((toggle) =>
-				toggle
-					.setValue(plugin.settings.randomFile.uppercase)
-					.onChange(async (value) => {
-						plugin.settings.randomFile.uppercase = value;
-						await plugin.saveSettings();
-					}),
-			);
+		const randomToggles: Array<{
+			key: string;
+			get: () => boolean;
+			set: (v: boolean) => void;
+		}> = [
+			{
+				key: 'settings.random-uppercase.name',
+				get: () => plugin.settings.randomFile.uppercase,
+				set: (v) => { plugin.settings.randomFile.uppercase = v; },
+			},
+			{
+				key: 'settings.random-lowercase.name',
+				get: () => plugin.settings.randomFile.lowercase,
+				set: (v) => { plugin.settings.randomFile.lowercase = v; },
+			},
+			{
+				key: 'settings.random-numbers.name',
+				get: () => plugin.settings.randomFile.numbers,
+				set: (v) => { plugin.settings.randomFile.numbers = v; },
+			},
+			{
+				key: 'settings.random-symbols.name',
+				get: () => plugin.settings.randomFile.symbols,
+				set: (v) => { plugin.settings.randomFile.symbols = v; },
+			},
+		];
 
-		new Setting(containerEl)
-			.setName(s(plugin, 'settings.random-lowercase.name'))
-			.setDesc(s(plugin, 'settings.random-lowercase.desc'))
-			.addToggle((toggle) =>
-				toggle
-					.setValue(plugin.settings.randomFile.lowercase)
-					.onChange(async (value) => {
-						plugin.settings.randomFile.lowercase = value;
+		for (const { key, get, set } of randomToggles) {
+			new Setting(containerEl)
+				.setName(s(plugin, key))
+				.setDesc(s(plugin, key.replace('.name', '.desc')))
+				.addToggle((toggle) =>
+					toggle.setValue(get()).onChange(async (value) => {
+						set(value);
 						await plugin.saveSettings();
 					}),
-			);
-
-		new Setting(containerEl)
-			.setName(s(plugin, 'settings.random-numbers.name'))
-			.setDesc(s(plugin, 'settings.random-numbers.desc'))
-			.addToggle((toggle) =>
-				toggle
-					.setValue(plugin.settings.randomFile.numbers)
-					.onChange(async (value) => {
-						plugin.settings.randomFile.numbers = value;
-						await plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName(s(plugin, 'settings.random-symbols.name'))
-			.setDesc(s(plugin, 'settings.random-symbols.desc'))
-			.addToggle((toggle) =>
-				toggle
-					.setValue(plugin.settings.randomFile.symbols)
-					.onChange(async (value) => {
-						plugin.settings.randomFile.symbols = value;
-						await plugin.saveSettings();
-					}),
-			);
+				);
+		}
 
 		// --- Pomodoro ---
 		new Setting(containerEl)
 			.setName(s(plugin, 'settings.section.pomodoro'))
 			.setHeading();
 
-		// Task file paths — list with file suggester
-		const taskFilesContainer = containerEl.createDiv({ cls: 'miyu-task-files-container' });
-		new Setting(containerEl)
-			.setName(s(plugin, 'settings.task-file-paths.name'))
-			.setDesc(s(plugin, 'settings.task-file-paths.desc'))
-			.addButton((btn) => btn.setButtonText('+ add file').onClick(() => showFileSuggest()));
-
-		function showFileSuggest() {
-			const row = taskFilesContainer.createDiv({ cls: 'miyu-file-suggest-row' });
-			const input = row.createEl('input', { type: 'text', placeholder: 'Type file name...' });
-			input.addClass('miyu-file-suggest-input');
-			new FileSuggest(plugin.app, input, (file) => {
-				const paths = [...plugin.settings.pomodoro.taskFilePaths];
-				if (!paths.includes(file.path)) {
-					paths.push(file.path);
-					plugin.settings.pomodoro.taskFilePaths = paths;
-					void plugin.saveSettings();
-					row.remove();
-					refreshTaskFileList();
-				}
-			});
-		}
+		// Task file paths — description area holds the list
+		const taskDescFrag = new DocumentFragment();
+		const taskListEl = taskDescFrag.createDiv({
+			cls: 'miyu-task-files-list',
+		});
 
 		function refreshTaskFileList() {
-			const existing = taskFilesContainer.querySelectorAll(':scope > .miyu-file-item');
-			existing.forEach((el) => el.remove());
+			taskListEl.empty();
 			for (const path of plugin.settings.pomodoro.taskFilePaths) {
-				const row = taskFilesContainer.createDiv({ cls: 'miyu-file-item' });
-				row.createSpan({ text: path, cls: 'miyu-file-item-path' });
-				const rmBtn = row.createEl('button', { text: '✕', cls: 'miyu-file-item-remove' });
+				const row = taskListEl.createDiv({ cls: 'miyu-file-item' });
+				row.createSpan({
+					text: path,
+					cls: 'miyu-file-item-path',
+				});
+				const rmBtn = row.createEl('button', {
+					text: '✕',
+					cls: 'miyu-file-item-remove',
+				});
 				rmBtn.onclick = async () => {
 					plugin.settings.pomodoro.taskFilePaths =
-						plugin.settings.pomodoro.taskFilePaths.filter((p) => p !== path);
+						plugin.settings.pomodoro.taskFilePaths.filter(
+							(p) => p !== path,
+						);
 					await plugin.saveSettings();
-					row.remove();
+					refreshTaskFileList();
 				};
 			}
 		}
+
+		new Setting(containerEl)
+			.setName(s(plugin, 'settings.task-file-paths.name'))
+			.setDesc(taskDescFrag)
+			.addButton((btn) =>
+				btn.setButtonText('+').onClick(() => {
+					const row = containerEl.createDiv({
+						cls: 'miyu-file-suggest-row',
+					});
+					const input = row.createEl('input', {
+						type: 'text',
+						placeholder: 'search file...',
+					});
+					input.addClass('miyu-file-suggest-input');
+					new FileSuggest(plugin.app, input, (file) => {
+						const paths = [
+							...plugin.settings.pomodoro.taskFilePaths,
+						];
+						if (!paths.includes(file.path)) {
+							paths.push(file.path);
+							plugin.settings.pomodoro.taskFilePaths =
+								paths;
+							void plugin.saveSettings();
+							row.remove();
+							refreshTaskFileList();
+						}
+					});
+				}),
+			);
+
 		refreshTaskFileList();
 
+		// Work minutes — number input
 		new Setting(containerEl)
 			.setName(s(plugin, 'settings.work-minutes.name'))
 			.setDesc(s(plugin, 'settings.work-minutes.desc'))
-			.addSlider((slider) =>
-				slider
-					.setLimits(1, 120, 1)
-					.setValue(plugin.settings.pomodoro.workMinutes)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						plugin.settings.pomodoro.workMinutes = value;
+			.addText((text) => {
+				text.setValue(
+					String(plugin.settings.pomodoro.workMinutes),
+				);
+				text.inputEl.type = 'number';
+				text.inputEl.setAttr('min', '1');
+				text.inputEl.setAttr('max', '120');
+				text.inputEl.addClass('miyu-number-input');
+				text.onChange(async (value) => {
+					const n = parseInt(value, 10);
+					if (n >= 1 && n <= 120) {
+						plugin.settings.pomodoro.workMinutes = n;
 						if (plugin.timer) plugin.timer.syncSettings();
 						await plugin.saveSettings();
-					}),
-			);
+					}
+				});
+			});
 
+		// Break minutes — number input
 		new Setting(containerEl)
 			.setName(s(plugin, 'settings.break-minutes.name'))
 			.setDesc(s(plugin, 'settings.break-minutes.desc'))
-			.addSlider((slider) =>
-				slider
-					.setLimits(0, 60, 1)
-					.setValue(plugin.settings.pomodoro.breakMinutes)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						plugin.settings.pomodoro.breakMinutes = value;
+			.addText((text) => {
+				text.setValue(
+					String(plugin.settings.pomodoro.breakMinutes),
+				);
+				text.inputEl.type = 'number';
+				text.inputEl.setAttr('min', '0');
+				text.inputEl.setAttr('max', '60');
+				text.inputEl.addClass('miyu-number-input');
+				text.onChange(async (value) => {
+					const n = parseInt(value, 10);
+					if (n >= 0 && n <= 60) {
+						plugin.settings.pomodoro.breakMinutes = n;
 						if (plugin.timer) plugin.timer.syncSettings();
 						await plugin.saveSettings();
-					}),
-			);
+					}
+				});
+			});
 
 		new Setting(containerEl)
 			.setName(s(plugin, 'settings.auto-start.name'))
@@ -285,6 +316,9 @@ export class MiyuSettingTab extends PluginSettingTab {
 					.setValue(plugin.settings.pomodoro.showStatusBar)
 					.onChange(async (value) => {
 						plugin.settings.pomodoro.showStatusBar = value;
+						if (plugin._statusEl) {
+							plugin._statusEl.toggleClass('miyu-sb-hidden', !value);
+						}
 						await plugin.saveSettings();
 					}),
 			);
@@ -303,7 +337,6 @@ export class MiyuSettingTab extends PluginSettingTab {
 	}
 }
 
-/** File suggester for task file paths — uses Obsidian's AbstractInputSuggest. */
 class FileSuggest extends AbstractInputSuggest<TFile> {
 	constructor(
 		app: App,

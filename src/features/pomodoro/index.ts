@@ -84,6 +84,7 @@ function setupStatusBar(plugin: MiyuPlugin): void {
 	if (!plugin.settings.pomodoro.showStatusBar) return;
 
 	const statusEl = plugin.addStatusBarItem();
+	plugin._statusEl = statusEl;
 	statusEl.addClass('mod-clickable');
 
 	let currentMode = plugin.timer!.getDisplay().mode;

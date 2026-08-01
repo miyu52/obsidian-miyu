@@ -19,6 +19,7 @@ export default class MiyuPlugin extends Plugin {
 	timer?: PomodoroTimer;
 	tracker?: TaskTracker;
 	_sbSetup?: boolean;
+	_statusEl?: HTMLElement;
 	private _featureCommandIds: string[] = [];
 
 	/** Convenience i18n helper for Svelte components. */
@@ -27,13 +28,17 @@ export default class MiyuPlugin extends Plugin {
 	}
 
 	async onload() {
-		const raw = (await this.loadData()) as Record<string, unknown> | null;
-		this.settings = this.migrateSettings(raw ?? {});
+		try {
+			const raw = (await this.loadData()) as Record<string, unknown> | null;
+			this.settings = this.migrateSettings(raw ?? {});
 
-		this.settingTab = new MiyuSettingTab(this.app, this);
-		this.addSettingTab(this.settingTab);
+			this.settingTab = new MiyuSettingTab(this.app, this);
+			this.addSettingTab(this.settingTab);
 
-		this._registerFeatures();
+			this._registerFeatures();
+		} catch (err) {
+			console.error('[Miyu] Failed to load plugin:', err);
+		}
 	}
 
 	onunload() {
