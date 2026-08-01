@@ -60,7 +60,7 @@ function that returns an array of registered command IDs.
 ## i18n
 
 - **Supported locales:** `en` (English), `zh-CN` (Simplified Chinese)
-- **Setting key:** `language` in `MiyuSettings` (type `Locale`, default `'en'`)
+- **Setting key:** `language` in `MiyuSettings` (type `Locale`, default `'zh-CN'`)
 - **Translation function:** `t(key, locale, vars?)` from `src/i18n/index.ts`
   - Falls back to English if key is missing in target locale
   - Supports `{var}` placeholder substitution
@@ -94,7 +94,7 @@ Prefix new feature settings with the feature name to avoid conflicts
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `language` | `Locale` | `'en'` | UI language |
+| `language` | `Locale` | `'zh-CN'` | UI language |
 | `randomLength` | `number` | `8` | Random string length |
 | `randomUppercase` | `boolean` | `true` | Include uppercase |
 | `randomLowercase` | `boolean` | `false` | Include lowercase |

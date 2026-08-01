@@ -12,7 +12,7 @@ export interface MiyuSettings {
 }
 
 export const DEFAULT_SETTINGS: MiyuSettings = {
-	language: 'en',
+	language: 'zh-CN',
 	randomLength: 8,
 	randomUppercase: true,
 	randomLowercase: false,

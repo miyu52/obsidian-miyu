@@ -1,44 +1,44 @@
 # Miyu
 
-Personal Obsidian toolkit with various utilities. Built for my own workflow.
+个人 Obsidian 工具集，为自己的工作流定制。
 
-## Features
+## 功能
 
-### Random file name
+### 随机文件名
 
-Generate a new note with a random filename. Useful for scratchpads, quick captures, and avoiding naming paralysis.
+生成随机文件名的笔记，适合草稿、速记、不想想名字的时候。
 
-- **Command:** `Generate note with random name` (`generate-random-note`)
-- Creates an empty `.md` file with a random name and opens it
-- Configurable character sets: uppercase, lowercase, numbers, symbols
-- Adjustable length (1–64 characters)
-- Auto-retries on name collision (up to 3 attempts)
+- **命令：** `生成随机名称笔记`（`generate-random-note`）
+- 创建空 `.md` 文件并以随机名称打开
+- 可配置字符集：大写字母、小写字母、数字、符号
+- 长度可调（1–64 字符）
+- 文件名冲突自动重试（最多 3 次）
 
-### i18n
+### 国际化
 
-Interface language can be switched in settings. Currently supports:
+可在设置中切换界面语言，目前支持：
 
-| Language | Code |
-|----------|------|
-| English | `en` |
+| 语言 | 代码 |
+|------|------|
 | 简体中文 | `zh-CN` |
+| English | `en` |
 
-Command names, notices, and all settings UI update immediately on language switch.
+切换语言后，命令名称、通知和设置界面即时生效。
 
-## Settings
+## 设置
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| Language | dropdown | English | UI language |
-| Length | slider 1–64 | 8 | Random string character count |
-| Uppercase | toggle | on | Include A–Z |
-| Lowercase | toggle | off | Include a–z |
-| Numbers | toggle | on | Include 0–9 |
-| Symbols | toggle | off | Include `!@#$%^&()-_[]{}+=` |
+| 设置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| 语言 | 下拉 | 简体中文 | 界面语言 |
+| 长度 | 滑块 1–64 | 8 | 随机字符串字符数 |
+| 大写字母 | 开关 | 开 | 包含 A–Z |
+| 小写字母 | 开关 | 关 | 包含 a–z |
+| 数字 | 开关 | 开 | 包含 0–9 |
+| 符号 | 开关 | 关 | 包含 `!@#$%^&()-_[]{}+=` |
 
-## Installation
+## 安装
 
-### From source
+### 源码安装
 
 ```bash
 git clone https://github.com/miyu52/obsidian-miyu.git
@@ -47,23 +47,23 @@ npm install
 npm run build
 ```
 
-Then copy `main.js`, `manifest.json`, `styles.css` to your vault's `.obsidian/plugins/obsidian-miyu/`.
+将 `main.js`、`manifest.json`、`styles.css` 复制到仓库的 `.obsidian/plugins/obsidian-miyu/`。
 
-### Via Obsidian community plugins
+### Obsidian 社区插件
 
-_Not yet listed._
+_暂未上架。_
 
-## Development
+## 开发
 
 ```bash
-npm install      # dependencies
-npm run dev      # watch mode
-npm run build    # production build (type-check + minify)
-npm run lint     # eslint
+npm install      # 安装依赖
+npm run dev      # 监听模式
+npm run build    # 生产构建（类型检查 + 压缩）
+npm run lint     # 代码检查
 ```
 
-Requires Node.js ≥18 and Obsidian ≥1.7.2.
+需要 Node.js ≥18，Obsidian ≥1.7.2。
 
-## License
+## 许可
 
 0-BSD
