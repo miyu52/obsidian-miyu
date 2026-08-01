@@ -1,4 +1,5 @@
 import type { MiyuSettings } from './settings';
+import { t, type Locale } from './i18n';
 
 export interface RandomStringOptions {
 	length: number;
@@ -25,15 +26,20 @@ export function getRandomOptions(settings: MiyuSettings): RandomStringOptions {
 }
 
 /** Generate a random string from the selected character sets. */
-export function generateRandomString(opts: RandomStringOptions): string {
+export function generateRandomString(
+	opts: RandomStringOptions,
+	locale: Locale,
+): string {
 	const charset = buildCharset(opts);
 	if (charset.length === 0) {
-		throw new Error('At least one character set must be enabled.');
+		throw new Error(t('error.no-charset', locale));
 	}
 
 	let result = '';
 	for (let i = 0; i < opts.length; i++) {
-		result += charset.charAt(Math.floor(Math.random() * charset.length));
+		result += charset.charAt(
+			Math.floor(Math.random() * charset.length),
+		);
 	}
 	return result;
 }
