@@ -52,6 +52,7 @@
 	panelMode = plugin.settings.pomodoro.panelMode;
 </script>
 
+{#key locale}
 <div class="miyu-pomodoro">
 	<!-- Active task -->
 	<div class="miyu-active-task">
@@ -124,6 +125,7 @@
 		</div>
 	{/if}
 </div>
+{/key}
 
 <style>
 	.miyu-pomodoro {

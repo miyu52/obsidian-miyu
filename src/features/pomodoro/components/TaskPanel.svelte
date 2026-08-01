@@ -22,7 +22,7 @@
 
 	// i18n — explicit subscription triggers reactivity
 	let locale = 'zh-CN';
-	let localeUnsub = localeStore.subscribe((l) => { locale = l; });
+	const _localeUnsub = localeStore.subscribe((l) => { locale = l; });
 
 	function t(key: string, vars?: Record<string, string>): string {
 		return i18nT(key, locale, vars);
@@ -146,6 +146,7 @@
 	$: noTaskLabel = t('pomodoro.no-task');
 </script>
 
+{#key locale}
 <div class="miyu-task-panel">
 	{#if taskFilePaths.length === 0}
 		<div class="miyu-task-empty">{noTaskLabel}</div>
@@ -241,6 +242,7 @@
 		</div>
 	{/if}
 </div>
+{/key}
 
 <style>
 	.miyu-task-panel {

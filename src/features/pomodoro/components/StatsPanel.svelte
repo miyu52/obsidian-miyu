@@ -81,6 +81,7 @@
 		: [];
 </script>
 
+{#key locale}
 <div class="miyu-stats-panel">
 	<div class="miyu-stats-nav">
 		<button class="miyu-nav-btn" on:click={prevMonth}>◀</button>
@@ -127,6 +128,7 @@
 		{/if}
 	{/if}
 </div>
+{/key}
 
 <style>
 	.miyu-stats-panel { width: 100%; }
