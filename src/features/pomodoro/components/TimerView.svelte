@@ -5,6 +5,8 @@
 	import type { PomodoroTimer } from '../timer';
 	import type { TimerDisplay, PanelMode } from '../../../types';
 	import type MiyuPlugin from '../../../main';
+	import { localeStore } from '../../../stores';
+	import { t as i18nT } from '../../../i18n';
 
 	export let plugin: MiyuPlugin;
 	export let timer: PomodoroTimer;
@@ -12,8 +14,9 @@
 	let display: TimerDisplay = timer.getDisplay();
 	let panelMode: PanelMode = 'none';
 
-	// i18n
-	let t = plugin._t;
+	// i18n — reactive to locale changes
+	$: locale = $localeStore;
+	$: t = (key: string, vars?: Record<string, string>) => i18nT(key, locale, vars);
 
 	// Timer subscription
 	const unsub = timer.onTick((d) => {

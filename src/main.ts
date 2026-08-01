@@ -12,6 +12,7 @@ import type { PomodoroTimer } from './features/pomodoro/timer';
 import type { TaskTracker } from './features/pomodoro/task-tracker';
 import type { PomodoroLog, ActiveTask, PanelMode } from './types';
 import { t, type Locale } from './i18n';
+import { localeStore } from './stores';
 
 export default class MiyuPlugin extends Plugin {
 	settings!: MiyuSettings;
@@ -31,6 +32,7 @@ export default class MiyuPlugin extends Plugin {
 		try {
 			const raw = (await this.loadData()) as Record<string, unknown> | null;
 			this.settings = this.migrateSettings(raw ?? {});
+			localeStore.set(this.settings.language);
 
 			this.settingTab = new MiyuSettingTab(this.app, this);
 			this.addSettingTab(this.settingTab);

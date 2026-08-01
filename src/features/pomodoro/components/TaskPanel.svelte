@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { TFile } from 'obsidian';
 	import type MiyuPlugin from '../../../main';
+	import { localeStore } from '../../../stores';
+	import { t as i18nT } from '../../../i18n';
 	import type { PomodoroTask, TaskHeading, ActiveTask } from '../../../types';
 	import { parseTaskFile } from '../task-parser';
 
@@ -22,7 +24,10 @@
 	let locale = 'zh-CN';
 	let t = (k: string, v?: Record<string, string>) => k;
 
-	$: t = plugin._t;
+	$: locale = $localeStore;
+	$: t = (key: string, vars?: Record<string, string>) => i18nT(key, locale, vars);
+
+	// Settings access
 	$: locale = plugin.settings.language;
 	$: taskFilePaths = plugin.settings.pomodoro.taskFilePaths;
 	$: activeTaskFilePath = plugin.settings.pomodoro.activeTaskFilePath ||

@@ -1,10 +1,13 @@
 <script lang="ts">
 	import type { PomodoroLog } from '../../../types';
 	import type MiyuPlugin from '../../../main';
+	import { localeStore } from '../../../stores';
+	import { t as i18nT } from '../../../i18n';
 
 	export let plugin: MiyuPlugin;
 
-	let t = plugin._t;
+	$: locale = $localeStore;
+	$: t = (key: string, vars?: Record<string, string>) => i18nT(key, locale, vars);
 	let logs: PomodoroLog[] = [];
 
 	$: logs = plugin.settings.pomodoro.logs;
