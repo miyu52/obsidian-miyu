@@ -18,6 +18,7 @@ export default class MiyuPlugin extends Plugin {
 	settingTab!: MiyuSettingTab;
 	timer?: PomodoroTimer;
 	tracker?: TaskTracker;
+	_sbSetup?: boolean;
 	private _featureCommandIds: string[] = [];
 
 	/** Convenience i18n helper for Svelte components. */

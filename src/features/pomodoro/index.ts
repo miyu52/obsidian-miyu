@@ -36,8 +36,11 @@ export function registerPomodoroFeature(plugin: MiyuPlugin): string[] {
 		}
 	});
 
-	// Status bar timer
-	setupStatusBar(plugin);
+	// Status bar timer (only once)
+	if (!plugin._sbSetup) {
+		setupStatusBar(plugin);
+		plugin._sbSetup = true;
+	}
 
 	// Commands
 	plugin.addCommand({
