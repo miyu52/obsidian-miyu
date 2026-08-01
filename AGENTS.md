@@ -209,3 +209,60 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
 - Svelte components use `css: 'injected'` compiler option — styles are bundled
   into JS, no separate `styles.css` needed.
 - `plugin._t(key, vars?)` added as convenience i18n helper for Svelte components.
+
+### 2026-08-02 — Pomodoro post-mortem ⚠️
+
+**The pomodoro integration (v1.1 WIP) introduced many bugs and was abandoned mid-development.**
+Key lessons from this failed attempt:
+
+**1. Svelte + i18n is the wrong approach for this plugin.**
+   - Svelte's reactivity model (`$:`, `$store`, `{#key}`) is not compatible with
+     how Obsidian plugins handle language switching.
+   - The `esbuild-svelte` plugin has compilation quirks (e.g. `$store` auto-subscription
+     may not work correctly).
+   - All i18n attempts failed: store auto-subscription, explicit `.subscribe()`,
+     `{#key locale}`, close+reopen — none reliably reflected language changes in UI.
+   - **Fix for future:** Don't use Svelte for i18n. Use Obsidian's native ItemView
+     with vanilla DOM that re-renders on `display()`, same as settings tab.
+
+**2. Too many changes at once.**
+   - Timer core, task parser, task tracker, logger, settings refactor (flat→nested),
+     Svelte components, status bar, file suggester — all in one go.
+   - No incremental verification in Obsidian.
+   - **Fix for future:** One module at a time. Build → test in Obsidian → commit → next.
+
+**3. `reloadFeatures()` is fragile.**
+   - `removeCommand()` may throw if command doesn't exist. Must wrap in try-catch.
+   - Calling `registerPomodoroFeature()` inside `reloadFeatures()` re-creates ribbon
+     icons, views, status bars — use guards (`_sbSetup`, `if (!plugin.timer)`) to
+     prevent duplicates.
+
+**4. Settings structure.**
+   - Nested settings `{ randomFile: {...}, pomodoro: {...} }` was a good idea.
+     Keep this pattern. Add `migrateSettings()` for backward compat.
+   - Runtime state (logs, activeTask) stored alongside settings in `data.json`.
+     This works but causes settings UI table to be incomplete (some fields hidden).
+
+**5. What SHOULD be kept from this attempt:**
+   - `src/types.ts` — shared type definitions are useful.
+   - `src/stores.ts` — may be useful for non-i18n reactive data (timer state).
+   - `src/features/pomodoro/timer.ts` — core timer logic is functional.
+   - `src/features/pomodoro/task-parser.ts` — heading + task parsing works.
+   - `src/features/pomodoro/task-tracker.ts` — 🍅 counter update logic works.
+   - `src/features/pomodoro/logger.ts` — PomodoroLog storage works.
+   - Settings interface (`RandomFileSettings`, `PomodoroSettings`) — keep.
+   - i18n keys for pomodoro — keep in locale files.
+
+**6. What should be REDONE:**
+   - **ALL Svelte components** — replace with vanilla DOM ItemView.
+   - **PomodoroView** — rewrite without Svelte import, use simple DOM manipulation.
+   - **Language reactivity** — don't try to make Svelte reactive to language changes.
+     Close and reopen the ItemView when language changes (which recreates all DOM).
+
+**7. Incremental plan for next attempt:**
+   1. `npm run build` → verify clean build
+   2. Add timer core only → test in Obsidian (start/pause/reset)
+   3. Add vanilla DOM UI for timer → test
+   4. Add task tracking → test
+   5. Add stats panel → test
+   6. Each step: build → lint → commit
