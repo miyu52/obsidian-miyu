@@ -16,12 +16,13 @@ const SYMBOLS = '!@#$%^&()-_[]{}+=';
 
 /** Extract random string options from plugin settings. */
 export function getRandomOptions(settings: MiyuSettings): RandomStringOptions {
+	const rf = settings.randomFile;
 	return {
-		length: settings.randomLength,
-		useUppercase: settings.randomUppercase,
-		useLowercase: settings.randomLowercase,
-		useNumbers: settings.randomNumbers,
-		useSymbols: settings.randomSymbols,
+		length: rf.length,
+		useUppercase: rf.uppercase,
+		useLowercase: rf.lowercase,
+		useNumbers: rf.numbers,
+		useSymbols: rf.symbols,
 	};
 }
 

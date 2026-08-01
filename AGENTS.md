@@ -22,13 +22,28 @@
 src/
 ├── main.ts                  # Plugin lifecycle — keep it MINIMAL
 ├── settings.ts              # Shared settings: interface, defaults, settings tab
+├── types.ts                 # Shared TypeScript types
 ├── utils.ts                 # Shared utilities (random string generator)
 ├── i18n/
 │   ├── index.ts             # t() function, Locale type
 │   ├── en.ts                # English locale strings
 │   └── zh-CN.ts             # Simplified Chinese locale strings
 └── features/
-    └── random-file.ts       # Feature: generate note with random name
+    ├── random-file.ts       # Feature: generate note with random name
+    └── pomodoro/
+        ├── index.ts         # Register function
+        ├── timer.ts         # Timer state machine + Web Worker
+        ├── task-parser.ts   # Parse headings/tasks from md files
+        ├── task-tracker.ts  # Active task + 🍅 counter update
+        ├── logger.ts        # PomodoroLog storage
+        ├── clock-worker.ts  # Blob-based Web Worker
+        ├── view.ts          # ItemView (right panel)
+        └── components/      # Svelte UI components
+            ├── TimerView.svelte
+            ├── TimerCircle.svelte
+            ├── TaskPanel.svelte
+            ├── StatsPanel.svelte
+            └── StatusBar.svelte
 ```
 
 This is a **multi-feature personal toolkit plugin**. Every feature is a self-contained
@@ -45,17 +60,47 @@ function that returns an array of registered command IDs.
 6. If the feature needs settings, add fields to `MiyuSettings` (prefix with feature name),
    update `DEFAULT_SETTINGS`, and add UI in `MiyuSettingTab.display()`.
 
+### 2. Pomodoro Timer (v1.1)
+
+- **Commands:**
+  - `Toggle pomodoro timer` / `切换番茄钟` (id: `toggle-pomodoro-timer`)
+  - `Toggle pomodoro panel` / `切换番茄钟面板` (id: `toggle-pomodoro-panel`)
+  - `Reset pomodoro timer` / `重置番茄钟` (id: `reset-pomodoro-timer`)
+- **Behavior:** WORK/BREAK pomodoro cycles with SVG ring timer, task tracking
+  with `[🍅 actual/expected]` counter in markdown, daily bar chart statistics.
+- **Timer:** Web Worker + absolute timestamp (`Date.now() - startTime`)
+  ensures zero time drift. breakMinutes=0 locks mode to WORK.
+- **Task tracking:** Parses configured md files for headings (H1–H3) and
+  tasks. Click to activate, `🍅 actual` auto-increments on WORK completion.
+- **UI:** Svelte-based ItemView in right sidebar. SVG ring + large countdown
+  + 4 buttons (📋Tasks, ▶Start/Pause, ↺Reset, 📊Stats). StatusBar optional.
+- **Stats:** Monthly bar chart. Click any bar to see daily detail.
+- **Settings:**
+  - `taskFilePaths` (textarea, default `[]`)
+  - `workMinutes` (slider 1–120, default 25)
+  - `breakMinutes` (slider 0–60, default 5)
+  - `autoStart` (toggle, default false)
+  - `notificationSound` (toggle, default true)
+  - `showStatusBar` (toggle, default true)
+  - `lowFrameRate` (toggle, default false)
+- **Source:** `src/features/pomodoro/`
+
 ### Design rules
 
 - **`main.ts` must stay small** — only `onload()`, `onunload()`, `saveSettings()`,
   `reloadFeatures()`, and `_registerFeatures()`.
-- **All feature logic lives in `src/features/`** — one file per feature.
-- **Shared code goes in `src/utils.ts`** or new files in `src/`.
+- **All feature logic lives in `src/features/`** — one directory per complex feature
+  or one file per simple feature.
+- **Shared types go in `src/types.ts`**.
+- **Shared utilities go in `src/utils.ts`** or new files in `src/`.
 - **Command IDs must be stable** — don't rename them after release.
 - **Use `this.register*` helpers** for anything that needs cleanup.
 - **All user-facing strings go through `t(key, locale)`** — never hardcode English.
 - **Features return `string[]` of command IDs** — enables `reloadFeatures()` to
   unregister/re-register on language change.
+- **UI uses Svelte** — components in `src/features/<name>/components/`.
+- **Settings are flat** — all in `MiyuSettings`. Runtime data (logs, active task,
+  panel state) also stored in settings for simplicity but not shown in settings UI.
 
 ## i18n
 
@@ -100,6 +145,16 @@ Prefix new feature settings with the feature name to avoid conflicts
 | `randomLowercase` | `boolean` | `false` | Include lowercase |
 | `randomNumbers` | `boolean` | `true` | Include numbers |
 | `randomSymbols` | `boolean` | `false` | Include symbols |
+| `taskFilePaths` | `string[]` | `[]` | Task file paths |
+| `workMinutes` | `number` | `25` | Work session minutes |
+| `breakMinutes` | `number` | `5` | Break session minutes |
+| `autoStart` | `boolean` | `false` | Auto-start next session |
+| `notificationSound` | `boolean` | `true` | Play sound on complete |
+| `showStatusBar` | `boolean` | `true` | Show in status bar |
+| `lowFrameRate` | `boolean` | `false` | Low FPS mode |
+
+_Note: `pomodoroLogs`, `activeTask`, `panelMode`, `taskFilter`, `taskSearch`,
+`headingCollapse` are also in `MiyuSettings` but are runtime state, not UI settings._
 
 ## Build & dev
 
@@ -140,3 +195,17 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
   then re-registers all features.
 - `random-file.ts` now reads locale from `plugin.settings.language` at call time,
   so notices always use the current language.
+
+### 2026-08-02 — Pomodoro timer integration
+
+- Svelte added as UI framework via `esbuild-svelte` plugin.
+- Web Worker uses Blob URL pattern (not file import) to avoid esbuild worker issues.
+- Timer computes elapsed via `Date.now() - startTime` (absolute) rather than
+  accumulating worker ticks — zero time drift regardless of tab visibility.
+- All pomodoro runtime objects (timer, tracker) stored on `MiyuPlugin` instance.
+- Settings restructured from flat to nested: `{ language, randomFile: {...}, pomodoro: {...} }`.
+  `migrateSettings()` auto-converts old flat data on first load.
+- The `removeCommand` API requires Obsidian ≥1.7.2 (`minAppVersion` already bumped).
+- Svelte components use `css: 'injected'` compiler option — styles are bundled
+  into JS, no separate `styles.css` needed.
+- `plugin._t(key, vars?)` added as convenience i18n helper for Svelte components.
