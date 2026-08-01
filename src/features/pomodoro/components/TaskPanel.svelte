@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { TFile } from 'obsidian';
 	import type MiyuPlugin from '../../../main';
-	import { localeStore } from '../../../stores';
-	import { t as i18nT } from '../../../i18n';
-	import type { PomodoroTask, TaskHeading, ActiveTask } from '../../../types';
+		import type { PomodoroTask, TaskHeading, ActiveTask } from '../../../types';
 	import { parseTaskFile } from '../task-parser';
 
 	export let plugin: MiyuPlugin;
@@ -20,13 +18,9 @@
 	let headings: TaskHeading[] = [];
 	let activeTask: ActiveTask | null = null;
 
-	// i18n — explicit subscription triggers reactivity
-	let locale = 'zh-CN';
-	const _localeUnsub = localeStore.subscribe((l) => { locale = l; });
-
-	function t(key: string, vars?: Record<string, string>): string {
-		return i18nT(key, locale, vars);
-	}
+	// i18n
+	let t = (k: string, v?: Record<string, string>) => k;
+	$: t = plugin._t;
 
 	// Settings access
 	$: locale = plugin.settings.language;
@@ -146,7 +140,6 @@
 	$: noTaskLabel = t('pomodoro.no-task');
 </script>
 
-{#key locale}
 <div class="miyu-task-panel">
 	{#if taskFilePaths.length === 0}
 		<div class="miyu-task-empty">{noTaskLabel}</div>
@@ -242,7 +235,6 @@
 		</div>
 	{/if}
 </div>
-{/key}
 
 <style>
 	.miyu-task-panel {

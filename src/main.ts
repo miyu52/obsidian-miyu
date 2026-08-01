@@ -53,7 +53,11 @@ export default class MiyuPlugin extends Plugin {
 
 	reloadFeatures(): void {
 		for (const id of this._featureCommandIds) {
-			this.removeCommand(id);
+			try {
+				this.removeCommand(id);
+			} catch {
+				// Command might not exist (e.g. first load)
+			}
 		}
 		this._featureCommandIds = [];
 		this._registerFeatures();

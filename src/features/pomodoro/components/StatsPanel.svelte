@@ -1,13 +1,11 @@
 <script lang="ts">
 	import type { PomodoroLog } from '../../../types';
 	import type MiyuPlugin from '../../../main';
-	import { localeStore } from '../../../stores';
-	import { t as i18nT } from '../../../i18n';
-
+	
 	export let plugin: MiyuPlugin;
 
-	$: locale = $localeStore;
-	$: t = (key: string, vars?: Record<string, string>) => i18nT(key, locale, vars);
+	// i18n
+	let t = plugin._t;
 	let logs: PomodoroLog[] = [];
 
 	$: logs = plugin.settings.pomodoro.logs;
@@ -81,7 +79,6 @@
 		: [];
 </script>
 
-{#key locale}
 <div class="miyu-stats-panel">
 	<div class="miyu-stats-nav">
 		<button class="miyu-nav-btn" on:click={prevMonth}>◀</button>
@@ -128,7 +125,6 @@
 		{/if}
 	{/if}
 </div>
-{/key}
 
 <style>
 	.miyu-stats-panel { width: 100%; }

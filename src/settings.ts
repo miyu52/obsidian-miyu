@@ -1,8 +1,8 @@
 import { App, PluginSettingTab, Setting, AbstractInputSuggest, TFile } from 'obsidian';
-import { localeStore } from './stores';
 import type MiyuPlugin from './main';
 import { t, type Locale } from './i18n';
 import type { PomodoroLog, ActiveTask, PanelMode } from './types';
+import { POMODORO_VIEW_TYPE } from './features/pomodoro/view';
 
 // --- Nested settings ---
 
@@ -97,9 +97,29 @@ export class MiyuSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						plugin.settings.language = value as Locale;
 						await plugin.saveSettings();
-						localeStore.set(value as Locale);
 						plugin.reloadFeatures();
+						// Close and reopen pomodoro view for instant i18n switch
+						const leaves = plugin.app.workspace.getLeavesOfType(
+							POMODORO_VIEW_TYPE,
+						);
+						plugin.app.workspace.detachLeavesOfType(
+							POMODORO_VIEW_TYPE,
+						);
 						this.display();
+						if (leaves.length > 0) {
+							window.setTimeout(() => {
+								const leaf =
+									plugin.app.workspace.getRightLeaf(
+										false,
+									);
+								if (leaf) {
+									void leaf.setViewState({
+										type: POMODORO_VIEW_TYPE,
+										active: false,
+									});
+								}
+							}, 200);
+						}
 					}),
 			);
 

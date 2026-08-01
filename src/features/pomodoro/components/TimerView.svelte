@@ -1,31 +1,19 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import TimerCircle from './TimerCircle.svelte';
 	import TaskPanel from './TaskPanel.svelte';
 	import StatsPanel from './StatsPanel.svelte';
 	import type { PomodoroTimer } from '../timer';
 	import type { TimerDisplay, PanelMode } from '../../../types';
 	import type MiyuPlugin from '../../../main';
-	import { localeStore } from '../../../stores';
-	import { t as i18nT } from '../../../i18n';
-
+	
 	export let plugin: MiyuPlugin;
 	export let timer: PomodoroTimer;
 
 	let display: TimerDisplay = timer.getDisplay();
 	let panelMode: PanelMode = 'none';
 
-	// i18n — explicit subscription triggers Svelte reactivity
-	let locale = 'zh-CN';
-	onMount(() => {
-		return localeStore.subscribe((l) => {
-			locale = l;
-		});
-	});
-
-	function t(key: string, vars?: Record<string, string>): string {
-		return i18nT(key, locale, vars);
-	}
+	// i18n
+	let t = plugin._t;
 
 	// Timer subscription
 	const unsub = timer.onTick((d) => {
@@ -52,7 +40,6 @@
 	panelMode = plugin.settings.pomodoro.panelMode;
 </script>
 
-{#key locale}
 <div class="miyu-pomodoro">
 	<!-- Active task -->
 	<div class="miyu-active-task">
@@ -125,7 +112,6 @@
 		</div>
 	{/if}
 </div>
-{/key}
 
 <style>
 	.miyu-pomodoro {
