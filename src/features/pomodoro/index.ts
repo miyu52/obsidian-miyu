@@ -1,4 +1,4 @@
-import { WorkspaceLeaf } from 'obsidian';
+import { WorkspaceLeaf, Menu, setTooltip } from 'obsidian';
 import type MiyuPlugin from '../../main';
 import type { TimerDisplay } from '../../types';
 import { PomodoroTimer } from './timer';
@@ -12,9 +12,13 @@ export function registerPomodoroFeature(plugin: MiyuPlugin): string[] {
 	const i18n = (key: string, vars?: Record<string, string>) =>
 		t(key, locale, vars);
 
-	// Initialize runtime objects
-	plugin.timer = new PomodoroTimer(plugin);
-	plugin.tracker = new TaskTracker(plugin);
+	// Initialize runtime objects (only once, not on reload)
+	if (!plugin.timer) {
+		plugin.timer = new PomodoroTimer(plugin);
+	}
+	if (!plugin.tracker) {
+		plugin.tracker = new TaskTracker(plugin);
+	}
 
 	// Register custom view
 	plugin.registerView(POMODORO_VIEW_TYPE, (leaf) => {
@@ -77,34 +81,104 @@ function setupStatusBar(plugin: MiyuPlugin): void {
 	if (!plugin.settings.pomodoro.showStatusBar) return;
 
 	const statusEl = plugin.addStatusBarItem();
-	statusEl.addClass('miyu-pomodoro-statusbar');
-	statusEl.addClass('miyu-sb-clickable');
+	statusEl.addClass('mod-clickable');
 
-	// Show initial state
-	renderStatusBar(statusEl, plugin.timer!.getDisplay(), plugin);
+	let currentMode = plugin.timer!.getDisplay().mode;
 
-	// Click handlers (set once)
-	statusEl.onclick = () => plugin.timer?.toggleTimer();
-	statusEl.oncontextmenu = (e) => {
-		e.preventDefault();
-		plugin.timer?.reset();
+	// Update tooltip on mode change
+	const updateTooltip = (display: TimerDisplay) => {
+		if (display.mode !== currentMode) {
+			currentMode = display.mode;
+			setTooltip(statusEl, currentMode === 'WORK' ? 'Work' : 'Break', {
+				delay: 300,
+				placement: 'top',
+			});
+		}
 	};
 
-	// Update on every tick
+	// Initial render
+	renderStatusBar(statusEl, plugin.timer!.getDisplay());
+	updateTooltip(plugin.timer!.getDisplay());
+
+	// Left click: toggle timer
+	statusEl.addEventListener('click', () => {
+		plugin.timer?.toggleTimer();
+	});
+
+	// Right click: context menu
+	statusEl.addEventListener('contextmenu', (e: MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+
+		const timer = plugin.timer!;
+		const display = timer.getDisplay();
+		const menu = new Menu();
+
+		// Start/Pause/Resume
+		const actionLabel = display.running
+			? 'Pause'
+			: display.sessionStarted
+				? 'Resume'
+				: 'Start';
+		menu.addItem((item) => {
+			item.setTitle(actionLabel).onClick(() => timer.toggleTimer());
+		});
+
+		// Reset
+		menu.addItem((item) => {
+			item.setTitle('Reset').onClick(() => timer.reset());
+		});
+
+		// Switch mode
+		const switchLabel =
+			display.mode === 'WORK' ? 'Switch to Break' : 'Switch to Work';
+		menu.addItem((item) => {
+			item.setTitle(switchLabel).onClick(() => timer.toggleMode());
+		});
+
+		menu.addSeparator();
+
+		// Auto-start toggle
+		menu.addItem((item) => {
+			item
+				.setTitle('Auto-start')
+				.setChecked(plugin.settings.pomodoro.autoStart)
+				.onClick(async () => {
+					plugin.settings.pomodoro.autoStart =
+						!plugin.settings.pomodoro.autoStart;
+					await plugin.saveSettings();
+				});
+		});
+
+		// Sound toggle
+		menu.addItem((item) => {
+			item
+				.setTitle('Sound')
+				.setChecked(plugin.settings.pomodoro.notificationSound)
+				.onClick(async () => {
+					plugin.settings.pomodoro.notificationSound =
+						!plugin.settings.pomodoro.notificationSound;
+					await plugin.saveSettings();
+				});
+		});
+
+		menu.showAtMouseEvent(e);
+	});
+
+	// Subscribe to timer ticks
 	plugin.timer!.onTick((display) => {
-		renderStatusBar(statusEl, display, plugin);
+		renderStatusBar(statusEl, display);
+		updateTooltip(display);
 	});
 }
 
 function renderStatusBar(
 	el: HTMLElement,
 	display: TimerDisplay,
-	_plugin: MiyuPlugin,
 ): void {
 	el.empty();
-	const emoji = display.mode === 'WORK' ? '🍅' : '🥤';
 	const icon = el.createSpan({ cls: 'miyu-sb-icon' });
-	icon.setText(emoji);
+	icon.setText(display.mode === 'WORK' ? '🍅' : '🥤');
 	const time = el.createSpan({ cls: 'miyu-sb-time' });
 	time.setText(display.remainedHuman);
 }

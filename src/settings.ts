@@ -105,7 +105,7 @@ export class MiyuSettingTab extends PluginSettingTab {
 						plugin.app.workspace.detachLeavesOfType(POMODORO_VIEW_TYPE);
 						if (leaves.length > 0) {
 							const nl = plugin.app.workspace.getRightLeaf(false);
-							if (nl) await nl.setViewState({ type: POMODORO_VIEW_TYPE, active: true });
+							if (nl) await nl.setViewState({ type: POMODORO_VIEW_TYPE, active: false });
 						}
 						plugin.settingTab.display();
 					}),
