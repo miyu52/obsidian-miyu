@@ -47,6 +47,8 @@ export class PomodoroTimer {
 	/** Subscribe to display updates. Returns unsubscribe function. */
 	onTick(cb: (display: TimerDisplay) => void): () => void {
 		this.onTickCallbacks.push(cb);
+		// Fire immediately with current state
+		cb(this.getDisplay());
 		return () => {
 			this.onTickCallbacks = this.onTickCallbacks.filter(
 				(c) => c !== cb,

@@ -1,5 +1,6 @@
 import { WorkspaceLeaf } from 'obsidian';
 import type MiyuPlugin from '../../main';
+import type { TimerDisplay } from '../../types';
 import { PomodoroTimer } from './timer';
 import { TaskTracker } from './task-tracker';
 import { PomodoroView, POMODORO_VIEW_TYPE } from './view';
@@ -77,25 +78,35 @@ function setupStatusBar(plugin: MiyuPlugin): void {
 
 	const statusEl = plugin.addStatusBarItem();
 	statusEl.addClass('miyu-pomodoro-statusbar');
+	statusEl.addClass('miyu-sb-clickable');
 
+	// Show initial state
+	renderStatusBar(statusEl, plugin.timer!.getDisplay(), plugin);
+
+	// Click handlers (set once)
+	statusEl.onclick = () => plugin.timer?.toggleTimer();
+	statusEl.oncontextmenu = (e) => {
+		e.preventDefault();
+		plugin.timer?.reset();
+	};
+
+	// Update on every tick
 	plugin.timer!.onTick((display) => {
-		statusEl.empty();
-		if (!display.sessionStarted) return;
-
-		const emoji = display.mode === 'WORK' ? '🍅' : '🥤';
-		const icon = statusEl.createSpan({ cls: 'miyu-sb-icon' });
-		icon.setText(emoji);
-
-		const time = statusEl.createSpan({ cls: 'miyu-sb-time' });
-		time.setText(display.remainedHuman);
-
-		statusEl.addClass('miyu-sb-clickable');
-		statusEl.onclick = () => plugin.timer?.toggleTimer();
-		statusEl.oncontextmenu = (e) => {
-			e.preventDefault();
-			plugin.timer?.reset();
-		};
+		renderStatusBar(statusEl, display, plugin);
 	});
+}
+
+function renderStatusBar(
+	el: HTMLElement,
+	display: TimerDisplay,
+	_plugin: MiyuPlugin,
+): void {
+	el.empty();
+	const emoji = display.mode === 'WORK' ? '🍅' : '🥤';
+	const icon = el.createSpan({ cls: 'miyu-sb-icon' });
+	icon.setText(emoji);
+	const time = el.createSpan({ cls: 'miyu-sb-time' });
+	time.setText(display.remainedHuman);
 }
 
 async function activateView(plugin: MiyuPlugin): Promise<void> {

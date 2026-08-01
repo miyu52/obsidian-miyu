@@ -1,7 +1,8 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, AbstractInputSuggest, TFile } from 'obsidian';
 import type MiyuPlugin from './main';
 import { t, type Locale } from './i18n';
 import type { PomodoroLog, ActiveTask, PanelMode } from './types';
+import { POMODORO_VIEW_TYPE } from './features/pomodoro/view';
 
 // --- Nested settings ---
 
@@ -99,6 +100,13 @@ export class MiyuSettingTab extends PluginSettingTab {
 						plugin.settings.language = value as Locale;
 						await plugin.saveSettings();
 						plugin.reloadFeatures();
+						// Close and reopen pomodoro views to pick up new language
+						const leaves = plugin.app.workspace.getLeavesOfType(POMODORO_VIEW_TYPE);
+						plugin.app.workspace.detachLeavesOfType(POMODORO_VIEW_TYPE);
+						if (leaves.length > 0) {
+							const nl = plugin.app.workspace.getRightLeaf(false);
+							if (nl) await nl.setViewState({ type: POMODORO_VIEW_TYPE, active: true });
+						}
 						plugin.settingTab.display();
 					}),
 			);
@@ -175,21 +183,45 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setName(s(plugin, 'settings.section.pomodoro'))
 			.setHeading();
 
+		// Task file paths — list with file suggester
+		const taskFilesContainer = containerEl.createDiv({ cls: 'miyu-task-files-container' });
 		new Setting(containerEl)
 			.setName(s(plugin, 'settings.task-file-paths.name'))
 			.setDesc(s(plugin, 'settings.task-file-paths.desc'))
-			.addTextArea((text) => {
-				text.setValue(plugin.settings.pomodoro.taskFilePaths.join('\n'));
-				text.setPlaceholder('Tasks.md');
-				text.inputEl.addClass('miyu-setting-textarea');
-				text.onChange(async (value) => {
-					plugin.settings.pomodoro.taskFilePaths = value
-						.split('\n')
-						.map((p) => p.trim())
-						.filter((p) => p.length > 0);
-					await plugin.saveSettings();
-				});
+			.addButton((btn) => btn.setButtonText('+ add file').onClick(() => showFileSuggest()));
+
+		function showFileSuggest() {
+			const row = taskFilesContainer.createDiv({ cls: 'miyu-file-suggest-row' });
+			const input = row.createEl('input', { type: 'text', placeholder: 'Type file name...' });
+			input.addClass('miyu-file-suggest-input');
+			new FileSuggest(plugin.app, input, (file) => {
+				const paths = [...plugin.settings.pomodoro.taskFilePaths];
+				if (!paths.includes(file.path)) {
+					paths.push(file.path);
+					plugin.settings.pomodoro.taskFilePaths = paths;
+					void plugin.saveSettings();
+					row.remove();
+					refreshTaskFileList();
+				}
 			});
+		}
+
+		function refreshTaskFileList() {
+			const existing = taskFilesContainer.querySelectorAll(':scope > .miyu-file-item');
+			existing.forEach((el) => el.remove());
+			for (const path of plugin.settings.pomodoro.taskFilePaths) {
+				const row = taskFilesContainer.createDiv({ cls: 'miyu-file-item' });
+				row.createSpan({ text: path, cls: 'miyu-file-item-path' });
+				const rmBtn = row.createEl('button', { text: '✕', cls: 'miyu-file-item-remove' });
+				rmBtn.onclick = async () => {
+					plugin.settings.pomodoro.taskFilePaths =
+						plugin.settings.pomodoro.taskFilePaths.filter((p) => p !== path);
+					await plugin.saveSettings();
+					row.remove();
+				};
+			}
+		}
+		refreshTaskFileList();
 
 		new Setting(containerEl)
 			.setName(s(plugin, 'settings.work-minutes.name'))
@@ -268,5 +300,33 @@ export class MiyuSettingTab extends PluginSettingTab {
 						await plugin.saveSettings();
 					}),
 			);
+	}
+}
+
+/** File suggester for task file paths — uses Obsidian's AbstractInputSuggest. */
+class FileSuggest extends AbstractInputSuggest<TFile> {
+	constructor(
+		app: App,
+		inputEl: HTMLInputElement,
+		private cb: (file: TFile) => void,
+	) {
+		super(app, inputEl);
+	}
+
+	getSuggestions(query: string): TFile[] {
+		const files = this.app.vault.getMarkdownFiles();
+		const lower = query.toLowerCase();
+		return files
+			.filter((f) => f.path.toLowerCase().includes(lower))
+			.slice(0, 10);
+	}
+
+	renderSuggestion(file: TFile, el: HTMLElement): void {
+		el.createDiv({ text: file.path });
+	}
+
+	selectSuggestion(file: TFile): void {
+		this.cb(file);
+		this.close();
 	}
 }
