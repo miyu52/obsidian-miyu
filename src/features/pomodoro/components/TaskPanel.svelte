@@ -20,12 +20,13 @@
 	let headings: TaskHeading[] = [];
 	let activeTask: ActiveTask | null = null;
 
-	// i18n helper
+	// i18n — explicit subscription triggers reactivity
 	let locale = 'zh-CN';
-	let t = (k: string, v?: Record<string, string>) => k;
+	let localeUnsub = localeStore.subscribe((l) => { locale = l; });
 
-	$: locale = $localeStore;
-	$: t = (key: string, vars?: Record<string, string>) => i18nT(key, locale, vars);
+	function t(key: string, vars?: Record<string, string>): string {
+		return i18nT(key, locale, vars);
+	}
 
 	// Settings access
 	$: locale = plugin.settings.language;

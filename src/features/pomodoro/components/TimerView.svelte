@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import TimerCircle from './TimerCircle.svelte';
 	import TaskPanel from './TaskPanel.svelte';
 	import StatsPanel from './StatsPanel.svelte';
@@ -14,9 +15,17 @@
 	let display: TimerDisplay = timer.getDisplay();
 	let panelMode: PanelMode = 'none';
 
-	// i18n — reactive to locale changes
-	$: locale = $localeStore;
-	$: t = (key: string, vars?: Record<string, string>) => i18nT(key, locale, vars);
+	// i18n — explicit subscription triggers Svelte reactivity
+	let locale = 'zh-CN';
+	onMount(() => {
+		return localeStore.subscribe((l) => {
+			locale = l;
+		});
+	});
+
+	function t(key: string, vars?: Record<string, string>): string {
+		return i18nT(key, locale, vars);
+	}
 
 	// Timer subscription
 	const unsub = timer.onTick((d) => {
