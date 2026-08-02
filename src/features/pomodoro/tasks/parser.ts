@@ -54,9 +54,16 @@ export class TaskParser implements Readable<TaskStore> {
 			}),
 		);
 
-		// 文件内容/删除/重命名 → 重解析
+		// 文件内容/删除/重命名/重建 → 重解析
 		plugin.registerEvent(
 			plugin.app.metadataCache.on('changed', (file: TFile) => {
+				if (file.path === plugin.settings.pomodoro.activeFile) {
+					this.load();
+				}
+			}),
+		);
+		plugin.registerEvent(
+			plugin.app.vault.on('create', (file) => {
 				if (file.path === plugin.settings.pomodoro.activeFile) {
 					this.load();
 				}
@@ -93,22 +100,26 @@ export class TaskParser implements Readable<TaskStore> {
 		const activeFile = this.plugin.settings.pomodoro.activeFile;
 		if (!activeFile) {
 			this.missingRetries = 0;
-			this.store.set({
+			const tree = {
 				filePath: '',
 				exists: false,
 				topTasks: [],
 				groups: [],
-			});
+			} satisfies TaskStore;
+			this.store.set(tree);
+			this.syncActiveTask(tree);
 			return;
 		}
 		const file = this.plugin.app.vault.getAbstractFileByPath(activeFile);
 		if (!(file instanceof TFile)) {
-			this.store.set({
+			const tree = {
 				filePath: activeFile,
 				exists: false,
 				topTasks: [],
 				groups: [],
-			});
+			} satisfies TaskStore;
+			this.store.set(tree);
+			this.syncActiveTask(tree);
 			// 启动早期查询可能失败，稍后重试几次；文件确实不存在时
 			// 重试耗尽后保持"文件不存在"状态
 			if (this.missingRetries < 5) {
@@ -138,9 +149,28 @@ export class TaskParser implements Readable<TaskStore> {
 			});
 	}
 
-	/** 活动任务与最新解析结果同步：任务被删则清除，任务有变则更新。 */
+	/** 活动任务与最新解析结果同步：任务被删则清除，任务有变则更新；启动时恢复持久化。 */
 	private syncActiveTask(tree: TaskStore) {
+		const persisted = this.plugin.settings.pomodoro.activeTask;
 		const active = this.tracker.task;
+
+		// 内存中无活动任务 → 尝试恢复持久化的定位
+		if (!active && persisted) {
+			const found = collectTasks(tree).find(
+				(t) => t.blockLink && t.blockLink === persisted.blockLink,
+			);
+			if (found) {
+				void this.tracker.active(found);
+				return;
+			}
+			// 任务不存在：属于当前文件 → 清除；属于其他文件 → 保留（切回时再恢复）
+			if (persisted.path === tree.filePath) {
+				this.plugin.settings.pomodoro.activeTask = null;
+				void this.plugin.saveSettings();
+			}
+			return;
+		}
+
 		if (!active) return;
 		const found = collectTasks(tree).find(
 			(t) => t.blockLink && t.blockLink === active.blockLink,

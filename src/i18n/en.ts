@@ -49,7 +49,9 @@ export const en: Record<string, string> = {
 	'settings.task-tracking.name': 'Enable task tracking',
 	'settings.task-tracking.desc':
 		'Important: Enabling this feature will automatically add a block ID when activating a task, unless a block ID is already present.',
-	'settings.task-progress.name': 'Show task progress background',
+	'settings.task-progress.name': 'Show task pomodoro counts',
+	'settings.task-progress.desc':
+		'Shows the pomodoro count (e.g. 2/3) and a progress gradient on task rows. Hides both when off',
 	'settings.task-format.name': 'Task format',
 	'settings.task-format.tasks': 'Tasks Emoji Format',
 	'settings.task-format.dataview': 'Dataview',
@@ -63,11 +65,12 @@ export const en: Record<string, string> = {
 		'Choose what day of the week to start. Select Locale default to use the default specified by moment.js',
 	'settings.week-start.locale': 'Locale default ({day})',
 	// Settings — Files section
-	'settings.files.name': 'Files',
+	'settings.files.name': 'Task files',
 	'settings.files.desc':
 		'Markdown files whose tasks are tracked by the pomodoro panel. The active file is chosen from the panel dropdown.',
 	'settings.files.add': 'Add file…',
 	'settings.files.remove': 'Remove',
+	'settings.files.empty': 'No files added yet',
 
 	// Settings — Misc
 	// Command names
@@ -96,6 +99,8 @@ export const en: Record<string, string> = {
 	'panel.stats': 'Statistics',
 	'panel.settings.sound': 'Notification Sound',
 	'panel.select-file': 'Select file…',
+	'panel.select-file-empty': 'No files added',
+	'panel.open-source': 'Open source file',
 	'panel.no-file': 'No file selected',
 	'panel.file-missing': 'File not found',
 	'panel.no-tasks': 'No tasks',
@@ -104,6 +109,8 @@ export const en: Record<string, string> = {
 	'panel.filter.all': 'All',
 	'panel.filter.todo': 'Todo',
 	'panel.filter.completed': 'Completed',
+	'panel.filter.prev': 'Previous filter',
+	'panel.filter.next': 'Next filter',
 	'panel.open-task': 'Open',
 
 	// Statistics panel

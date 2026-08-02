@@ -7,6 +7,15 @@ export type Mode = 'WORK' | 'BREAK';
 
 export type TaskFormat = 'TASKS' | 'DATAVIEW';
 
+/** 任务面板过滤条件（持久化在 pomodoro.taskFilter）。 */
+export type TaskFilter = 'todo' | 'completed' | 'all';
+
+/** 活动任务的持久化定位（只存键，不存派生值）。 */
+export interface ActiveTaskRef {
+	path: string;
+	blockLink: string;
+}
+
 /** 计时器状态机：IDLE = 无会话；RUNNING = 走时中；PAUSED = 暂停（会话仍在）。 */
 export type TimerPhase = 'IDLE' | 'RUNNING' | 'PAUSED';
 

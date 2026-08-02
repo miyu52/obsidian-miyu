@@ -5,6 +5,7 @@ import {
 	SuggestModal,
 	TFile,
 	moment,
+	setIcon,
 } from 'obsidian';
 import type MiyuPlugin from './main';
 import { t, type Locale } from './i18n';
@@ -66,7 +67,7 @@ function s(plugin: MiyuPlugin, key: string, vars?: Record<string, string>) {
 }
 
 /** 文件选择弹窗：从 vault 中搜索 md 文件。 */
-class FileSuggestModal extends SuggestModal<TFile> {
+export class FileSuggestModal extends SuggestModal<TFile> {
 	private onPick: (file: TFile) => void;
 
 	constructor(app: App, onPick: (file: TFile) => void) {
@@ -389,7 +390,7 @@ export class MiyuSettingTab extends PluginSettingTab {
 				});
 			});
 
-		new Setting(containerEl)
+		const filesSetting = new Setting(containerEl)
 			.setName(s(plugin, 'settings.files.name'))
 			.setDesc(s(plugin, 'settings.files.desc'))
 			.addButton((button) => {
@@ -410,22 +411,40 @@ export class MiyuSettingTab extends PluginSettingTab {
 				});
 			});
 
+		// 文件列表：作为"文件"设置项的子元素（设置块内换行包裹）
+		filesSetting.settingEl.addClass('miyu-setting-files-wrap');
+		const fileListEl = filesSetting.settingEl.createDiv({
+			cls: 'miyu-setting-files',
+		});
+		if (plugin.settings.pomodoro.files.length === 0) {
+			fileListEl.createDiv({
+				cls: 'miyu-setting-files-empty',
+				text: s(plugin, 'settings.files.empty'),
+			});
+		}
 		for (const path of plugin.settings.pomodoro.files) {
-			new Setting(containerEl)
-				.setName(path)
-				.addExtraButton((button) => {
-					button.setIcon('trash');
-					button.setTooltip(s(plugin, 'settings.files.remove'));
-					button.onClick(async () => {
-						const p = plugin.settings.pomodoro;
-						p.files = p.files.filter((f) => f !== path);
-						if (p.activeFile === path) {
-							p.activeFile = p.files[0] ?? '';
-						}
-						await plugin.saveSettings();
-						plugin.settingTab.display();
-					});
-				});
+			const row = fileListEl.createDiv({ cls: 'miyu-setting-file' });
+			row.createSpan({
+				cls: 'miyu-setting-file-name',
+				text: path,
+				attr: { title: path },
+			});
+			const remove = row.createEl('button', {
+				cls: 'miyu-setting-file-remove',
+				attr: {
+					'aria-label': s(plugin, 'settings.files.remove'),
+				},
+			});
+			setIcon(remove, 'trash');
+			remove.addEventListener('click', () => {
+				const p = plugin.settings.pomodoro;
+				p.files = p.files.filter((f) => f !== path);
+				if (p.activeFile === path) {
+					p.activeFile = p.files[0] ?? '';
+				}
+				void plugin.saveSettings();
+				plugin.settingTab.display();
+			});
 		}
 	}
 }

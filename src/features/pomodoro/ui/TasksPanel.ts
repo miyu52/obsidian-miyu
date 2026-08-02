@@ -1,25 +1,36 @@
-import { Menu, type ItemView } from 'obsidian';
+import { Menu, TFile, type ItemView } from 'obsidian';
 import type MiyuPlugin from '../../../main';
 import { t } from '../../../i18n';
 import type { Unsubscriber } from '../../../core/store';
-import type { TaskGroup, TaskItem, TaskStore, TaskTrackerState } from '../types';
+import type { TaskFilter, TaskGroup, TaskItem, TaskStore, TaskTrackerState } from '../types';
 import type { TaskParser } from '../tasks/parser';
 import { collectTasks } from '../tasks/parser';
 import type { TaskTracker } from '../tasks/tracker';
 import type { SessionStore } from '../stats';
 import { pomodoroSettings } from '../settings';
+import { FileSuggestModal } from '../../../settings';
 
-const ICON_CHECK = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check"><path d="M20 6 9 17l-5-5"/></svg>`;
+const ICON_TASK = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-list-todo"><rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>`;
 
-const ICON_CIRCLE = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle"><circle cx="12" cy="12" r="10"/></svg>`;
+const ICON_FILE = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>`;
 
-const ICON_REMOVE = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
+const ICON_UNCHECKED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg>`;
 
-const ICON_CHEVRON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>`;
+const ICON_CHECKED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-square"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`;
 
-type FilterStatus = 'todo' | 'completed' | 'all';
+const ICON_REMOVE = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 
-const FILTER_ORDER: FilterStatus[] = ['todo', 'completed', 'all'];
+const ICON_SEARCH = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`;
+
+const ICON_CHEVRON_DOWN = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-down"><path d="m6 9 6 6 6-6"/></svg>`;
+
+const ICON_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-external-link"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>`;
+
+const ICON_FOLDER = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="16" viewBox="0 0 27 24" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round" stroke-width="2" class="svg-icon folder"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"/><path d="M2 10h20"/></svg>`;
+
+const ICON_FOLDER_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-open"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>`;
+
+const FILTER_ORDER: TaskFilter[] = ['todo', 'completed', 'all'];
 
 /**
  * 任务面板：今日番茄钟进度卡片 + 文件下拉框 + 待办/已完成/全部过滤 +
@@ -43,7 +54,13 @@ export class TasksPanel {
 
 	private summaryBarFill: HTMLElement;
 
-	private fileSelect: HTMLSelectElement;
+	private fileSelectBtn: HTMLButtonElement;
+
+	private fileSelectLabel: HTMLElement;
+
+	private fileSelectArrow: HTMLElement;
+
+	private openBtn: HTMLButtonElement;
 
 	private countEl: HTMLElement;
 
@@ -53,9 +70,9 @@ export class TasksPanel {
 
 	private searchEl: HTMLInputElement;
 
-	private filterEls: Map<FilterStatus, HTMLElement> = new Map();
+	private filterLabelEl: HTMLElement;
 
-	private status: FilterStatus = 'todo';
+	private status: TaskFilter = 'todo';
 
 	private query = '';
 
@@ -81,6 +98,7 @@ export class TasksPanel {
 		this.tracker = plugin.pomodoro!.tracker;
 		this.stats = plugin.pomodoro!.stats;
 		const locale = plugin.settings.language;
+		this.status = plugin.settings.pomodoro.taskFilter;
 
 		this.root = container.createDiv({ cls: 'miyu-tasks' });
 
@@ -98,38 +116,68 @@ export class TasksPanel {
 			cls: 'miyu-tasks-summary-bar-fill',
 		});
 
-		// --- 文件下拉框 + 任务计数 ---
+		// --- 文件选择按钮 + 打开源文件 + 任务计数 ---
 		const toolbar = this.root.createDiv({ cls: 'miyu-tasks-toolbar' });
-		this.fileSelect = toolbar.createEl('select', {
+		this.fileSelectBtn = toolbar.createEl('button', {
 			cls: 'miyu-tasks-file-select',
+			attr: { 'aria-label': t('panel.select-file', locale) },
 		});
-		this.fileSelect.addEventListener('change', () => {
-			plugin.settings.pomodoro.activeFile = this.fileSelect.value;
-			void plugin.saveSettings();
+		const fileIcon = this.fileSelectBtn.createSpan({
+			cls: 'miyu-tasks-file-select-icon',
+		});
+		fileIcon.innerHTML = ICON_FILE;
+		this.fileSelectLabel = this.fileSelectBtn.createSpan({
+			cls: 'miyu-tasks-file-select-label',
+		});
+		this.fileSelectArrow = this.fileSelectBtn.createSpan({
+			cls: 'miyu-tasks-file-select-arrow',
+		});
+		this.fileSelectArrow.innerHTML = ICON_CHEVRON_DOWN;
+		this.fileSelectBtn.addEventListener('click', () => {
+			this.showFileMenu();
+		});
+		this.openBtn = toolbar.createEl('button', {
+			cls: 'miyu-tasks-open',
+			attr: { 'aria-label': t('panel.open-source', locale) },
+		});
+		const openIcon = this.openBtn.createSpan({ cls: 'miyu-tasks-open-icon' });
+		openIcon.innerHTML = ICON_OPEN;
+		this.openBtn.addEventListener('click', () => {
+			this.openActiveFile();
 		});
 		this.countEl = toolbar.createSpan({ cls: 'miyu-tasks-count' });
 
-		// --- 过滤 pill + 搜索 ---
+		// --- 过滤循环控件（居中，◀/▶ 循环切换） + 搜索框 ---
 		const filterRow = this.root.createDiv({ cls: 'miyu-tasks-filters' });
-		for (const status of FILTER_ORDER) {
-			const label =
-				status === 'todo'
-					? t('panel.filter.todo', locale)
-					: status === 'completed'
-						? t('panel.filter.completed', locale)
-						: t('panel.filter.all', locale);
-			const el = filterRow.createEl('button', {
-				cls: `miyu-tasks-filter${status === 'todo' ? ' is-active' : ''}`,
-				text: label,
-			});
-			el.addEventListener('click', () => {
-				this.status = status;
-				this.renderTree();
-				this.updateFilterClasses();
-			});
-			this.filterEls.set(status, el);
-		}
-		this.searchEl = filterRow.createEl('input', {
+		const prevBtn = filterRow.createEl('button', {
+			cls: 'miyu-tasks-filter-nav',
+			attr: { 'aria-label': t('panel.filter.prev', locale) },
+		});
+		prevBtn.setText('◀');
+		prevBtn.addEventListener('click', () => {
+			this.cycleFilter(-1);
+		});
+		this.filterLabelEl = filterRow.createSpan({
+			cls: 'miyu-tasks-filter-label',
+			text: this.filterLabelText(),
+		});
+		const nextBtn = filterRow.createEl('button', {
+			cls: 'miyu-tasks-filter-nav',
+			attr: { 'aria-label': t('panel.filter.next', locale) },
+		});
+		nextBtn.setText('▶');
+		nextBtn.addEventListener('click', () => {
+			this.cycleFilter(1);
+		});
+
+		const searchRow = this.root.createDiv({
+			cls: 'miyu-tasks-search-row',
+		});
+		const searchIcon = searchRow.createSpan({
+			cls: 'miyu-tasks-search-icon',
+		});
+		searchIcon.innerHTML = ICON_SEARCH;
+		this.searchEl = searchRow.createEl('input', {
 			cls: 'miyu-tasks-search',
 			type: 'search',
 			attr: { placeholder: t('panel.search', locale) },
@@ -161,7 +209,11 @@ export class TasksPanel {
 			}),
 		);
 		this.unsubscribers.push(
-			pomodoroSettings.subscribe(() => {
+			pomodoroSettings.subscribe((p) => {
+				if (p.taskFilter !== this.status) {
+					this.status = p.taskFilter;
+					this.filterLabelEl.setText(this.filterLabelText());
+				}
 				this.renderFileSelect();
 				this.renderSummary();
 				this.renderTree();
@@ -191,25 +243,71 @@ export class TasksPanel {
 		}
 	}
 
-	// ---------- 文件下拉框 ----------
+	// ---------- 文件选择 ----------
 
 	private renderFileSelect() {
 		const p = this.plugin.settings.pomodoro;
 		const locale = this.plugin.settings.language;
-		this.fileSelect.empty();
+		if (p.activeFile) {
+			const name = p.activeFile.split('/').pop() ?? p.activeFile;
+			this.fileSelectLabel.setText(name);
+			this.fileSelectLabel.setAttribute('title', p.activeFile);
+		} else {
+			this.fileSelectLabel.setText(t('panel.select-file', locale));
+			this.fileSelectLabel.removeAttribute('title');
+		}
+		this.openBtn.style.display = p.activeFile ? '' : 'none';
+	}
 
-		this.fileSelect.createEl('option', {
-			text: t('panel.select-file', locale),
-			attr: { value: '' },
+	private showFileMenu() {
+		const locale = this.plugin.settings.language;
+		const p = this.plugin.settings.pomodoro;
+		const menu = new Menu();
+		menu.addItem((item) => {
+			item.setTitle(t('panel.select-file', locale)).onClick(() => {
+				new FileSuggestModal(this.plugin.app, (file) => {
+					if (!p.files.includes(file.path)) {
+						p.files.push(file.path);
+					}
+					p.activeFile = file.path;
+					void this.plugin.saveSettings();
+				}).open();
+			});
 		});
+		if (p.files.length > 0) {
+			menu.addSeparator();
+		}
 		for (const path of p.files) {
-			const name = path.split('/').pop() ?? path;
-			this.fileSelect.createEl('option', {
-				text: name,
-				attr: { value: path, title: path },
+			menu.addItem((item) => {
+				item
+					.setTitle(path)
+					.setChecked(path === p.activeFile)
+					.onClick(() => {
+						p.activeFile = path;
+						void this.plugin.saveSettings();
+					});
 			});
 		}
-		this.fileSelect.value = p.activeFile;
+		if (p.files.length === 0) {
+			menu.addItem((item) =>
+				item
+					.setTitle(t('panel.select-file-empty', locale))
+					.setDisabled(true),
+			);
+		}
+		const rect = this.fileSelectBtn.getBoundingClientRect();
+		menu.showAtPosition({ x: rect.left, y: rect.bottom });
+	}
+
+	private openActiveFile() {
+		const path = this.plugin.settings.pomodoro.activeFile;
+		if (!path) {
+			return;
+		}
+		const file = this.plugin.app.vault.getAbstractFileByPath(path);
+		if (file instanceof TFile) {
+			void this.plugin.app.workspace.getLeaf('tab').openFile(file);
+		}
 	}
 
 	// ---------- 活动任务 ----------
@@ -220,14 +318,14 @@ export class TasksPanel {
 		if (!task) {
 			return;
 		}
-		const row = this.activeEl.createDiv({ cls: 'miyu-task-row is-active' });
+		const row = this.activeEl.createDiv({
+			cls: 'miyu-task-row is-active',
+		});
 		const icon = row.createSpan({ cls: 'miyu-task-icon' });
-		icon.innerHTML = ICON_CIRCLE;
-		row.createEl('input', {
-			cls: 'miyu-task-name-input',
-			type: 'text',
-			value: task.name,
-			attr: { readonly: 'readonly' },
+		icon.innerHTML = ICON_TASK;
+		row.createSpan({
+			cls: 'miyu-task-active-name',
+			text: task.name,
 		});
 		const remove = row.createSpan({ cls: 'miyu-task-remove' });
 		remove.innerHTML = ICON_REMOVE;
@@ -305,10 +403,10 @@ export class TasksPanel {
 
 	private renderGroupBlock(store: TaskStore) {
 		for (const task of store.topTasks) {
-			this.renderTaskRow(this.treeEl, task, 0);
+			this.renderTaskRow(this.treeEl, task);
 		}
 		for (const group of store.groups) {
-			this.renderGroup(this.treeEl, group, 0);
+			this.renderGroup(this.treeEl, group);
 		}
 		if (store.topTasks.length === 0 && store.groups.length === 0) {
 			this.treeEl.createDiv({
@@ -318,24 +416,19 @@ export class TasksPanel {
 		}
 	}
 
-	private renderGroup(
-		container: HTMLElement,
-		group: TaskGroup,
-		depth: number,
-	) {
+	private renderGroup(container: HTMLElement, group: TaskGroup) {
 		const collapsed = this.plugin.settings.pomodoro.collapsedSections.includes(
 			group.id,
 		);
 
-		const header = container.createDiv({
+		const folder = container.createDiv({
 			cls: `miyu-task-group${collapsed ? ' is-collapsed' : ''}`,
 		});
-		header.setCssProps({ paddingLeft: `${0.5 + depth * 0.75}rem` });
-		const arrow = header.createSpan({ cls: 'miyu-task-group-arrow' });
-		arrow.innerHTML = ICON_CHEVRON;
-		arrow.setCssProps({ transform: collapsed ? '' : 'rotate(90deg)' });
-		header.createSpan({
-			cls: 'miyu-task-group-title',
+		const header = folder.createDiv({ cls: 'miyu-task-group-title' });
+		const icon = header.createSpan({ cls: 'miyu-task-group-icon' });
+		icon.innerHTML = collapsed ? ICON_FOLDER : ICON_FOLDER_OPEN;
+		header.createDiv({
+			cls: 'miyu-task-group-label',
 			text: group.title,
 		});
 		const total = group.tasks.length + countNestedTasks(group);
@@ -351,11 +444,12 @@ export class TasksPanel {
 			return;
 		}
 
+		const children = folder.createDiv({ cls: 'miyu-task-children' });
 		for (const task of group.tasks) {
-			this.renderTaskRow(container, task, depth + 1);
+			this.renderTaskRow(children, task);
 		}
 		for (const child of group.children) {
-			this.renderGroup(container, child, depth + 1);
+			this.renderGroup(children, child);
 		}
 	}
 
@@ -372,18 +466,18 @@ export class TasksPanel {
 		void this.plugin.saveSettings();
 	}
 
-	private renderTaskRow(
-		container: HTMLElement,
-		item: TaskItem,
-		depth: number,
-	) {
+	private renderTaskRow(container: HTMLElement, item: TaskItem) {
+		const isActive =
+			this.trackerState.task?.blockLink &&
+			this.trackerState.task.blockLink === item.blockLink;
 		const el = container.createDiv({
-			cls: `miyu-task-row${item.checked ? ' is-checked' : ''}`,
+			cls: `miyu-task-row${item.checked ? ' is-checked' : ''}${isActive ? ' is-active' : ''}`,
 		});
-		el.setCssProps({ paddingLeft: `${0.5 + depth * 0.75}rem` });
 
-		const progress = this.progress(item);
-		el.style.background = `linear-gradient(to right, rgba(var(--color-green-rgb),0.16) ${progress}%, transparent ${progress}%)`;
+		el.style.setProperty(
+			'--miyu-progress',
+			`${this.progress(item)}%`,
+		);
 
 		el.addEventListener('click', () => {
 			void this.tracker.active(item);
@@ -393,15 +487,20 @@ export class TasksPanel {
 		});
 
 		const icon = el.createSpan({ cls: 'miyu-task-icon' });
-		icon.innerHTML = item.checked ? ICON_CHECK : ICON_CIRCLE;
+		icon.innerHTML = ICON_TASK;
 
 		const desc = el.createDiv({ cls: 'miyu-task-desc' });
 		this.renderMarkdown(item.name, desc);
 
-		el.createSpan({
-			cls: 'miyu-task-pomos',
-			text: this.progressText(item),
-		});
+		const pomos = this.progressText(item);
+		if (this.plugin.settings.pomodoro.showTaskProgress && pomos) {
+			el.createSpan({
+				cls: 'miyu-task-pomos',
+				text: `🍅 ${pomos}`,
+			});
+		}
+		const check = el.createSpan({ cls: 'miyu-task-check' });
+		check.innerHTML = item.checked ? ICON_CHECKED : ICON_UNCHECKED;
 	}
 
 	private progress(item: TaskItem): number {
@@ -417,26 +516,20 @@ export class TasksPanel {
 	private progressText(item: TaskItem): string {
 		const { actualPomodoros, expectedPomodoros } = item;
 		if (expectedPomodoros > 0) {
-			const unfinished = expectedPomodoros - actualPomodoros;
-			const max = Math.max(expectedPomodoros, actualPomodoros);
-			if (max > 10) {
-				if (unfinished > 0) {
-					return `◌ x ${unfinished} 🍅 x ${actualPomodoros}`;
-				}
-				return `🍅 x ${expectedPomodoros}  🥫 x ${Math.abs(unfinished)}`;
+			const finished = Math.min(actualPomodoros, expectedPomodoros);
+			const left = expectedPomodoros - finished;
+			if (finished > 0 && left > 0) {
+				return `${finished}/${expectedPomodoros}`;
 			}
-			if (unfinished > 0) {
-				return `${'🍅'.repeat(actualPomodoros)}${'◌'.repeat(unfinished)}`;
+			if (left > 0) {
+				return `0/${expectedPomodoros}`;
 			}
-			return `${'🍅'.repeat(expectedPomodoros)}${'🥫'.repeat(
-				Math.abs(unfinished),
-			)}`;
+			if (actualPomodoros > expectedPomodoros) {
+				return `${expectedPomodoros}/${expectedPomodoros}+${actualPomodoros - expectedPomodoros}`;
+			}
+			return `${expectedPomodoros}/${expectedPomodoros}`;
 		}
-		return actualPomodoros > 10
-			? `🍅 x ${actualPomodoros}`
-			: actualPomodoros > 0
-				? `${'🍅'.repeat(actualPomodoros)}`
-				: '';
+		return actualPomodoros > 0 ? String(actualPomodoros) : '';
 	}
 
 	private renderMarkdown(content: string, el: HTMLElement) {
@@ -458,10 +551,26 @@ export class TasksPanel {
 		menu.showAtMouseEvent(e);
 	}
 
-	private updateFilterClasses() {
-		for (const [status, el] of this.filterEls) {
-			el.toggleClass('is-active', status === this.status);
-		}
+	private filterLabelText(): string {
+		const locale = this.plugin.settings.language;
+		return this.status === 'todo'
+			? t('panel.filter.todo', locale)
+			: this.status === 'completed'
+				? t('panel.filter.completed', locale)
+				: t('panel.filter.all', locale);
+	}
+
+	private cycleFilter(dir: number) {
+		const idx = FILTER_ORDER.indexOf(this.status);
+		const next =
+			FILTER_ORDER[
+				(idx + dir + FILTER_ORDER.length) % FILTER_ORDER.length
+			] ?? this.status;
+		this.status = next;
+		this.plugin.settings.pomodoro.taskFilter = next;
+		void this.plugin.saveSettings();
+		this.filterLabelEl.setText(this.filterLabelText());
+		this.renderTree();
 	}
 
 	destroy() {

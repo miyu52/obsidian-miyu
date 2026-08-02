@@ -1,5 +1,10 @@
 import { writable, type Writable } from '../../core/store';
-import type { PomodoroRecord, TaskFormat } from './types';
+import type {
+	ActiveTaskRef,
+	PomodoroRecord,
+	TaskFilter,
+	TaskFormat,
+} from './types';
 
 /** 番茄钟功能设置（嵌套在 MiyuSettings.pomodoro 下）。 */
 export interface PomodoroSettings {
@@ -30,6 +35,10 @@ export interface PomodoroSettings {
 	activeFile: string;
 	/** 折叠标题的持久化键（TaskGroup.id）。 */
 	collapsedSections: string[];
+	/** 任务面板过滤条件（默认待办，持久化）。 */
+	taskFilter: TaskFilter;
+	/** 活动任务定位（null = 无活动任务，持久化）。 */
+	activeTask: ActiveTaskRef | null;
 	// 日志
 	records: PomodoroRecord[];
 }
@@ -51,6 +60,8 @@ export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
 	files: [],
 	activeFile: '',
 	collapsedSections: [],
+	taskFilter: 'todo',
+	activeTask: null,
 	records: [],
 };
 

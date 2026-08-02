@@ -173,6 +173,8 @@ features must follow the same pattern.
 | `pomodoro.files` | `string[]` | `[]` | md files tracked by the panel |
 | `pomodoro.activeFile` | `string` | `''` | Active file (panel dropdown) |
 | `pomodoro.collapsedSections` | `string[]` | `[]` | Collapsed heading ids |
+| `pomodoro.taskFilter` | `TaskFilter` | `'todo'` | Tasks panel filter (`'todo'`/`'completed'`/`'all'`) |
+| `pomodoro.activeTask` | `ActiveTaskRef \| null` | `null` | Active task locator `{path, blockLink}` |
 | `pomodoro.records` | `PomodoroRecord[]` | `[]` | Session log (data.json) |
 
 ## Build & dev
@@ -299,11 +301,45 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
   language as the stats panel (`miyu-tasks-*` / `miyu-task-*` classes: outer
   box, rounded cards, pill filters). Layout: today-progress card on top
   (`本日 5/8` + theme progress bar, turns green when goal reached — was moved
-  here from the timer circle), file dropdown + task count, filter pills in
-  order **待办/已完成/全部** (default `todo`), search (underline style), active
-  task row (readonly name + remove), then the grouped tree. Row progress uses
-  a background gradient via `el.style.background` (dynamic value — allowed by
-  lint). Old `pomodoro-tasks-*` classes were fully removed.
+  here from the timer circle), file button + task count + open-source button,
+  filter cycling control `◀ 待办 ▶` centered (same nav style as the stats
+  week/heatmap headers; ◀/▶ cycles 待办/已完成/全部, default `todo`, the
+  center label is a plain non-interactive span), then the search box (rounded
+  `--background-secondary` field with a magnifier icon), active
+  task row (readonly name + remove), then the grouped tree. The file button
+  opens an Obsidian `Menu` anchored at the button's bottom-left
+  (`showAtPosition` with the button rect, NO width — a wide full-width menu
+  gets clamped to the window edge by Obsidian and looks misplaced) — first
+  item "选择文件…" opens `FileSuggestModal` from settings.ts to pick any vault
+  md and add it to `pomodoro.files`; the open-source button (right of the file
+  button) opens the active file in a new tab. Task rows show a green progress
+  gradient background (when `showTaskProgress` and expected count > 0) + a
+  pomodoro pill; the gradient is driven by an inline `--miyu-progress` CSS
+  custom property, NOT `el.style.background` — inline `background` shorthand
+  resets `background-color` and permanently kills the `:hover` rule's
+  background; the group header's task count
+  badge is a grey pill with a bare number, and the task pomodoro pill is
+  distinguished by a `🍅` emoji prefix (the pill is only rendered when there
+  is a count — an empty pill shows as a stray grey dot). Old
+  `pomodoro-tasks-*` classes were fully removed. (2026-08-02 later pass: inner
+  card borders replaced with `--background-secondary` fills, per-row gradient
+  progress removed (later restored, see above), pomodoro counter now a text
+  pill like `2/3` instead of 🍅/◌/🥫 emoji. (2026-08-02 third pass: tree mimics
+  Obsidian's file explorer —
+  groups are real nested `miyu-task-group`/`miyu-task-group-title`/
+  `miyu-task-children` nodes, rows are `miyu-task-row`, so the tree renders
+  with OUR OWN classes only — no Obsidian `nav-*` classes (see the naming
+  convention below); group indent comes from `.miyu-task-children` padding;
+  collapse state shown via folder icon (`ICON_FOLDER` / `ICON_FOLDER_OPEN`, no
+  rotation); `is-active` on a row highlights the tracked task; summary value no
+  longer enlarged — the progress bar is the highlight. (2026-08-02 fourth pass:
+  group chevron replaced by folder open/closed icons, task rows got a
+  `file-text` icon on the left and a square checkbox on the far right of the
+  row. Fifth pass: collapsed groups show a closed folder (`ICON_FOLDER`, 18x16
+  — same 16px height as task icons) and expanded groups show `ICON_FOLDER_OPEN`;
+  folder and task text both use 0.85rem; the active-task row is a plain
+  `miyu-task-row is-active` row with accent-tint highlight, no more bordered
+  card with an input.)
 - **Stats panel (5th button):** top row = 本日/本周/本月/总计 four number cards;
   middle = single-week 7-day bar distribution with prev/next week navigation
   (week start follows `pomodoro.weekStart`, default Sunday, "locale default"
@@ -321,8 +357,9 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
 - **Settings UI conventions:** number inputs use the official style — `addText`
   + `inputEl.type='number'` via the `addNumberInput` helper, uniform width via
   `.miyu-setting-input` (`var(--input-width, 140px)`), input-save + out-of-range
-  revert. Pomodoro settings are ONE flat section (no sub-headings) and there is
-  NO "restore defaults" button.
+  revert. Pomodoro settings are grouped under sub-headings
+  (`settings.section.timer|notification|task|goal|files`, rendered with
+  `Setting.setHeading()`) and there is NO "restore defaults" button.
 - **moment global locale is mutable:** Obsidian's `window.moment` locale can be
   changed externally, so `moment.weekdaysShort()` etc. can flip language at
   runtime. Weekday labels must come from the plugin i18n (`stats.weekday.N`)
@@ -331,6 +368,20 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
   completed WORK sessions (writes `🍅::` counts back to the file) — it was
   accidentally dropped once in a refactor. `reset()` only resets the timer and
   must NOT clear the active task; the active-task name input is readonly.
+- **Active task + filter are persisted:** `pomodoro.activeTask` stores only the
+  locator `{path, blockLink}` (never name/counts — those are derived from file
+  parse and refreshed by `TaskParser.syncActiveTask`, which matches by
+  `blockLink` only, so renames survive). Restore happens on every parse when
+  memory is empty; a persisted task not found in the CURRENT file's tree is
+  kept (not cleared) unless it belongs to that file, so it can be restored
+  when the right file becomes active. `pomodoro.taskFilter` mirrors the panel's
+  ◀/▶ cycle; the panel reads it at construction and syncs from the settings
+  mirror on changes (single source of truth = settings).
+- **Stale-file fallbacks (parser):** `load()` runs `syncActiveTask()` in ALL
+  branches — including empty/missing-file trees — so deleting the active file
+  (or clearing `activeFile`) clears the in-memory active task and its persisted
+  ref instead of leaving a stale row. `vault.on('create')` is also listened to,
+  so recreating a file at the same path as `activeFile` re-parses it.
 - **Startup vault-readiness gotcha:** `vault.getAbstractFileByPath()` may return
   null during plugin `onload` (early startup), which made the task panel show
   "file not found" until a manual reselect. `TaskParser` now re-loads on
@@ -340,3 +391,25 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
   objects in an old `data.json` miss keys added later (e.g. `weekStart`),
   leaving them `undefined` and silently falling back to locale defaults.
   Always use `normalizeSettings()` (settings.ts) when loading data.
+- **CSS class naming convention (MUST follow):** every plugin-owned class and
+  CSS variable gets a `miyu-` prefix (e.g. `.miyu-tasks`, `--miyu-pomodoro-*`).
+  There are NO exceptions — never reuse bare Obsidian internal classes
+  (`nav-folder`, `nav-file-title`, `collapse-icon`, ...) in feature UI. We
+  tried borrowing them for the task tree: themes style them unpredictably
+  (folder titles came out bold, look varied by theme) and `--nav-item-*` vars
+  are scoped to `.nav-files-container` anyway. Everything a file tree needs
+  (hover, active highlight, ellipsis, indent) is a few lines of our own CSS —
+  write it ourselves.
+- **Task panel icons (lucide):** group headers use `ICON_FOLDER` (closed
+  folder, collapsed) / `ICON_FOLDER_OPEN` (open folder, expanded — no rotation
+  needed), task rows use `ICON_TASK` (list-todo) on the left and the completion
+  checkbox (`ICON_UNCHECKED` square / `ICON_CHECKED` check-square) on the far
+  RIGHT after the pomodoro pill. All row icons are 16px tall (`ICON_FOLDER` is
+  18x16 due to its 27:24 viewBox; the group icon box is fixed 18x16 so the
+  title doesn't shift when the folder icon swaps). The file button uses
+  `ICON_FILE` (plain document — distinct from the task icon). The active-task
+  row is a
+  `miyu-task-row is-active` row with accent-tint highlight
+  (`rgba(var(--color-accent-rgb), 0.15)`) and a plain `miyu-task-active-name`
+  span — NOT an input. Icons are static SVG strings assigned via `innerHTML`
+  (lint exception), never user input.

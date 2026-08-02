@@ -175,7 +175,7 @@ If your plugin does not need CSS, delete this file.
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	border: 1px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
 	border-radius: 5px;
 	padding: 0.5rem 0.75rem;
 }
@@ -186,8 +186,8 @@ If your plugin does not need CSS, delete this file.
 }
 
 .miyu-timer-view .miyu-tasks-summary-value {
-	font-size: 1.1rem;
-	font-weight: bold;
+	font-size: 0.75rem;
+	color: var(--text-muted);
 }
 
 .miyu-timer-view .miyu-tasks-summary-value.is-done {
@@ -216,14 +216,78 @@ If your plugin does not need CSS, delete this file.
 	gap: 0.5rem;
 }
 
+/* 工具栏：文件选择按钮 + 计数 + 打开源文件 */
+.miyu-timer-view .miyu-tasks-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
 .miyu-timer-view .miyu-tasks-file-select {
 	flex: 1;
 	min-width: 0;
-	font-size: 0.85rem;
+	display: flex;
+	align-items: center;
+	gap: 4px;
 	background: transparent;
 	border: none;
 	box-shadow: none;
+	font-size: 0.85rem;
+	color: var(--text-normal);
+	padding: 2px 6px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.miyu-timer-view .miyu-tasks-file-select:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.miyu-timer-view .miyu-tasks-file-select-icon {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	color: var(--text-faint);
+}
+
+.miyu-timer-view .miyu-tasks-file-select-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
 	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-align: left;
+}
+
+.miyu-timer-view .miyu-tasks-file-select-arrow {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	color: var(--text-muted);
+}
+
+.miyu-timer-view .miyu-tasks-open {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	flex-shrink: 0;
+	background: transparent;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	border-radius: 4px;
+}
+
+.miyu-timer-view .miyu-tasks-open-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.miyu-timer-view .miyu-tasks-open:hover {
+	background-color: var(--background-modifier-hover);
 	color: var(--text-normal);
 }
 
@@ -233,46 +297,66 @@ If your plugin does not need CSS, delete this file.
 	white-space: nowrap;
 }
 
-/* 过滤 pill + 搜索 */
+/* 过滤循环控件（◀ 待办 ▶，居中） */
 .miyu-timer-view .miyu-tasks-filters {
 	display: flex;
 	align-items: center;
-	gap: 0.35rem;
+	justify-content: center;
+	gap: 0.75rem;
 }
 
-.miyu-timer-view .miyu-tasks-filter {
-	font-size: 0.75rem;
-	padding: 2px 10px;
-	border-radius: 10px;
-	cursor: pointer;
-	color: var(--text-muted);
+.miyu-timer-view .miyu-tasks-filter-nav {
 	background: transparent;
 	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 0.8rem;
+	padding: 2px 8px;
+	border-radius: 4px;
 }
 
-.miyu-timer-view .miyu-tasks-filter:hover {
+.miyu-timer-view .miyu-tasks-filter-nav:hover {
 	background-color: var(--background-modifier-hover);
 	color: var(--text-normal);
 }
 
-.miyu-timer-view .miyu-tasks-filter.is-active {
-	background-color: var(--interactive-accent);
-	color: var(--text-on-accent-inverted);
+.miyu-timer-view .miyu-tasks-filter-label {
+	display: inline-block;
+	min-width: 4em;
+	text-align: center;
+	font-size: 0.8rem;
+	color: var(--text-normal);
+}
+
+/* 搜索框（圆角底框 + 放大镜图标） */
+.miyu-timer-view .miyu-tasks-search-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	background-color: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 3px 8px;
+}
+
+.miyu-timer-view .miyu-tasks-search-icon {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	color: var(--text-faint);
 }
 
 .miyu-timer-view .miyu-tasks-search {
 	flex: 1;
 	min-width: 0;
-	font-size: 0.75rem;
+	font-size: 0.8rem;
 	background: transparent;
 	border: none;
-	border-bottom: 1px solid var(--background-modifier-border);
-	border-radius: 0;
 	box-shadow: none;
+	padding: 0;
 }
 
 .miyu-timer-view .miyu-tasks-search:focus {
-	border-bottom-color: var(--interactive-accent);
 	box-shadow: none;
 }
 
@@ -283,23 +367,45 @@ If your plugin does not need CSS, delete this file.
 	gap: 6px;
 	padding-top: 0.35rem;
 	padding-bottom: 0.35rem;
+	padding-left: 0.35rem;
 	padding-right: 0.5rem;
 	border-radius: 4px;
 	cursor: pointer;
+	font-size: 0.85rem;
+	color: var(--text-normal);
+	/* 番茄进度渐变（进度由行内 --miyu-progress 变量提供；
+	 * 用 CSS 规则而非内联 background，hover/active 的 background-color 才能覆盖） */
+	background: linear-gradient(
+		to right,
+		rgba(var(--color-green-rgb), 0.16) var(--miyu-progress, 0%),
+		transparent var(--miyu-progress, 0%)
+	);
 }
 
 .miyu-timer-view .miyu-task-row:hover {
 	background-color: var(--background-modifier-hover);
 }
 
+.miyu-timer-view .miyu-task-row.is-active {
+	background-color: rgba(var(--color-accent-rgb), 0.15);
+}
+
 .miyu-timer-view .miyu-task-icon {
 	display: inline-flex;
 	align-items: center;
 	flex-shrink: 0;
-	color: var(--color-blue);
+	color: var(--text-faint);
 }
 
-.miyu-timer-view .miyu-task-row.is-checked .miyu-task-icon {
+/* 右侧完成状态复选框 */
+.miyu-timer-view .miyu-task-check {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	color: var(--text-faint);
+}
+
+.miyu-timer-view .miyu-task-row.is-checked .miyu-task-check {
 	color: var(--color-green);
 }
 
@@ -313,10 +419,7 @@ If your plugin does not need CSS, delete this file.
 	min-width: 0;
 	overflow: hidden;
 	pointer-events: none;
-}
-
-.miyu-timer-view .miyu-task-desc * {
-	font-size: 0.8rem !important;
+	font-size: inherit;
 }
 
 .miyu-timer-view .miyu-task-desc p {
@@ -330,31 +433,23 @@ If your plugin does not need CSS, delete this file.
 
 .miyu-timer-view .miyu-task-pomos {
 	font-size: 0.7rem;
+	line-height: 1.2;
 	color: var(--text-muted);
 	white-space: nowrap;
 	overflow: hidden;
+	background-color: var(--background-modifier-hover);
+	border-radius: 8px;
+	padding: 1px 6px;
+	flex-shrink: 0;
 }
 
-/* 活动任务行 */
-.miyu-timer-view .miyu-tasks-active {
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 5px;
-}
-
-.miyu-timer-view .miyu-tasks-active .miyu-task-row {
-	background-color: var(--background-modifier-active-hover);
-}
-
-.miyu-timer-view .miyu-task-name-input {
+/* 活动任务行（与树行同款样式） */
+.miyu-timer-view .miyu-task-active-name {
 	flex: 1;
 	min-width: 0;
-	font-size: 0.8rem;
-	background: transparent;
-	border: none;
-	box-shadow: none;
-	cursor: default;
-	opacity: 1;
+	overflow: hidden;
 	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .miyu-timer-view .miyu-task-remove {
@@ -368,47 +463,57 @@ If your plugin does not need CSS, delete this file.
 	color: var(--text-normal);
 }
 
-/* 分组标题 */
-.miyu-timer-view .miyu-task-group {
+/* 分组标题（行高与任务行一致：0.35rem 上下内边距） */
+.miyu-timer-view .miyu-task-group-title {
 	display: flex;
 	align-items: center;
 	gap: 4px;
-	padding-top: 0.4rem;
-	padding-bottom: 0.4rem;
-	padding-right: 0.5rem;
-	cursor: pointer;
-	border-top: 1px solid var(--background-modifier-border);
-	font-weight: bold;
-	font-size: 0.85rem;
+	padding: 0.35rem 0.5rem 0.35rem 0.35rem;
 	border-radius: 4px;
+	cursor: pointer;
+	font-size: 0.85rem;
+	font-weight: normal;
+	color: var(--text-normal);
 }
 
-.miyu-timer-view .miyu-task-group:hover {
+.miyu-timer-view .miyu-task-group-title:hover {
 	background-color: var(--background-modifier-hover);
 }
 
-.miyu-timer-view .miyu-task-group-arrow {
-	display: inline-flex;
-	align-items: center;
-	transition: transform 0.15s ease;
-	flex-shrink: 0;
-	color: var(--text-muted);
-}
-
-.miyu-timer-view .miyu-task-group-title {
+.miyu-timer-view .miyu-task-group-label {
 	flex: 1;
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
+.miyu-timer-view .miyu-task-group.is-collapsed > .miyu-task-children {
+	display: none;
+}
+
+.miyu-timer-view .miyu-task-children {
+	padding-left: 14px;
+}
+
+.miyu-timer-view .miyu-task-group-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 16px;
+	flex-shrink: 0;
+	color: var(--text-muted);
+}
+
+/* 分组标题任务计数（灰底 pill；与任务行的番茄计数通过 🍅 前缀区分） */
 .miyu-timer-view .miyu-task-group-badge {
 	font-size: 0.7rem;
+	line-height: 1.3;
 	color: var(--text-faint);
 	background-color: var(--background-modifier-hover);
 	border-radius: 8px;
 	padding: 0 6px;
-	line-height: 1.3;
 	flex-shrink: 0;
 }
 
@@ -706,6 +811,73 @@ If your plugin does not need CSS, delete this file.
 	text-align: center;
 }
 
-	padding: 0;
+/* 设置页 — 数字/文本输入框统一宽度
+ * （Obsidian 核心只给 text 输入定义了宽度，number 没有；
+ * 不加这条规则各输入框宽度会不一致） */
+.miyu-setting-input {
+	width: var(--input-width, 140px);
 }
+
+/* 设置页 — 文件列表（嵌套在"文件"设置项内部，换行占满整行） */
+.miyu-setting-files-wrap {
+	flex-wrap: wrap;
+}
+
+.miyu-setting-files {
+	flex-basis: 100%;
+	width: 100%;
+	margin-top: 0.25rem;
+	padding: 0.5rem;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+	background-color: var(--background-secondary);
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.miyu-setting-files-empty {
+	padding: 0.25rem 0.5rem;
+	font-size: 0.8rem;
+	color: var(--text-faint);
+}
+
+.miyu-setting-file {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 0.85rem;
+}
+
+.miyu-setting-file:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.miyu-setting-file-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.miyu-setting-file-remove {
+	display: inline-flex;
+	align-items: center;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 3px;
+	border-radius: 4px;
+}
+
+.miyu-setting-file-remove:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
 

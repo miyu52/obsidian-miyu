@@ -41,9 +41,12 @@ export const zhCN: Record<string, string> = {
 	'settings.custom-sound.play': '播放',
 
 	// 设置 — 任务
-	'settings.task-tracking.name': '启用任务追踪',	'settings.task-tracking.desc':
+	'settings.task-tracking.name': '启用任务追踪',
+	'settings.task-tracking.desc':
 		'注意：启用此功能后，激活任务时会自动为任务添加块 ID（除非已有块 ID）。',
-	'settings.task-progress.name': '显示任务进度背景',
+	'settings.task-progress.name': '显示任务番茄计数',
+	'settings.task-progress.desc':
+		'在任务行显示番茄计数（如 2/3）和计划进度渐变背景。关闭后两者都不显示',
 	'settings.task-format.name': '任务格式',
 	'settings.task-format.tasks': '任务 Emoji 格式',
 	'settings.task-format.dataview': 'Dataview',
@@ -56,11 +59,12 @@ export const zhCN: Record<string, string> = {
 		'选择每周从哪天开始。选择"跟随语言环境"则使用 moment.js 的语言默认值',
 	'settings.week-start.locale': '跟随语言环境（{day}）',
 	// 设置 — 番茄钟文件
-	'settings.files.name': '文件',
+	'settings.files.name': '任务文件',
 	'settings.files.desc':
 		'参与番茄钟任务追踪的 md 文件。激活文件在面板下拉框中选择。',
 	'settings.files.add': '添加文件…',
 	'settings.files.remove': '移除',
+	'settings.files.empty': '尚未添加文件',
 
 	// 命令名称
 	'command.generate-random-note': '生成随机名称笔记',
@@ -88,6 +92,8 @@ export const zhCN: Record<string, string> = {
 	'panel.stats': '统计',
 	'panel.settings.sound': '通知音效',
 	'panel.select-file': '选择文件…',
+	'panel.select-file-empty': '未添加文件',
+	'panel.open-source': '打开源文件',
 	'panel.no-file': '未选择文件',
 	'panel.file-missing': '文件不存在',
 	'panel.no-tasks': '没有任务',
@@ -96,6 +102,8 @@ export const zhCN: Record<string, string> = {
 	'panel.filter.all': '全部',
 	'panel.filter.todo': '待办',
 	'panel.filter.completed': '已完成',
+	'panel.filter.prev': '上一个过滤条件',
+	'panel.filter.next': '下一个过滤条件',
 	'panel.open-task': '打开',
 
 	// 统计面板

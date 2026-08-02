@@ -50,12 +50,26 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 			state.task = task;
 			return state;
 		});
+		this.persist();
 	}
 
-	clear() {		this.store.update((state) => {
+	clear() {
+		this.store.update((state) => {
 			state.task = undefined;
 			return state;
 		});
+		this.persist();
+	}
+
+	/** 把活动任务定位写入设置（只存 path + blockLink）。 */
+	private persist() {
+		const task = this.state.task;
+		const p = this.plugin.settings.pomodoro;
+		p.activeTask =
+			task?.blockLink !== undefined && task.blockLink !== ''
+				? { path: task.path, blockLink: task.blockLink }
+				: null;
+		void this.plugin.saveSettings();
 	}
 
 	/** 打开任务所在文件并跳转到任务行。 */
