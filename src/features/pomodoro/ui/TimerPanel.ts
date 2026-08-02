@@ -4,8 +4,6 @@ import { t } from '../../../i18n';
 import type { Unsubscriber } from '../../../core/store';
 import { circleOffset, modeLabel, type PomodoroTimer } from '../timer';
 import type { TimerDisplay } from '../types';
-import { pomodoroSettings } from '../settings';
-import type { SessionStore } from '../stats';
 import { TasksPanel } from './TasksPanel';
 import { QuickSettingsPanel } from './QuickSettingsPanel';
 import { StatsPanel } from './StatsPanel';
@@ -35,7 +33,6 @@ export class TimerPanel {
 
 	private timer: PomodoroTimer;
 
-	private stats: SessionStore;
 
 	private root: HTMLElement;
 
@@ -51,7 +48,6 @@ export class TimerPanel {
 
 	private playBtn: HTMLElement;
 
-	private todayEl: HTMLElement;
 
 	private tasksArea: HTMLElement;
 
@@ -76,7 +72,6 @@ export class TimerPanel {
 	) {
 		this.plugin = plugin;
 		this.timer = plugin.pomodoro!.timer;
-		this.stats = plugin.pomodoro!.stats;
 		const locale = plugin.settings.language;
 
 		this.root = container.createDiv({ cls: 'pomodoro-container' });
@@ -111,8 +106,6 @@ export class TimerPanel {
 		textControl.addEventListener('click', () => {
 			this.timer.toggleTimer();
 		});
-
-		this.todayEl = main.createDiv({ cls: 'pomodoro-today' });
 
 		const controls = main.createDiv({ cls: 'pomodoro-controls' });
 
@@ -177,11 +170,6 @@ export class TimerPanel {
 				this.renderState(state);
 			}),
 		);
-		this.unsubscribers.push(
-			pomodoroSettings.subscribe(() => {
-				this.renderToday();
-			}),
-		);
 	}
 
 	private renderState(state: TimerDisplay) {
@@ -203,22 +191,6 @@ export class TimerPanel {
 		this.progressCircle.style.strokeDashoffset = String(
 			circleOffset(state),
 		);
-	}
-
-	private renderToday() {
-		const goal = this.plugin.settings.pomodoro.dailyGoal;
-		if (goal <= 0) {
-			this.todayEl.setCssProps({ display: 'none' });
-			return;
-		}
-		const count = this.stats.todayCompletedCount();
-		this.todayEl.setText(
-			t('panel.today-progress', this.plugin.settings.language, {
-				count: String(count),
-				goal: String(goal),
-			}),
-		);
-		this.todayEl.setCssProps({ display: '' });
 	}
 
 	private toggleExtra(value: 'tasks' | 'settings' | 'stats') {

@@ -87,7 +87,6 @@ export const zhCN: Record<string, string> = {
 	'panel.settings': '设置',
 	'panel.stats': '统计',
 	'panel.settings.sound': '通知音效',
-	'panel.today-progress': '今日 {count}/{goal}',
 	'panel.select-file': '选择文件…',
 	'panel.no-file': '未选择文件',
 	'panel.file-missing': '文件不存在',

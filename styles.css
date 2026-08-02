@@ -159,175 +159,266 @@ If your plugin does not need CSS, delete this file.
 	}
 }
 
-/* Task list panel */
-.miyu-timer-view .pomodoro-tasks-wrapper {
+/* Tasks panel (visual language matches the stats panel) */
+.miyu-timer-view .miyu-tasks {
 	width: 100%;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 5px;
-}
-
-.miyu-timer-view .pomodoro-tasks-header-title {
-	width: 100%;
-	background-color: var(--background-modifier-active-hover);
-	padding: 0.5rem 1rem;
-	font-size: 1rem;
-	font-weight: bold;
-	display: flex;
-	justify-content: space-between;
-	align-items: flex-end;
-}
-
-.miyu-timer-view .pomodoro-tasks-header-title .pomodoro-tasks-file-name {
-	flex: 1;
-	text-wrap: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	padding-right: 5px;
-}
-
-.miyu-timer-view .pomodoro-tasks-file-name {
-	cursor: pointer;
-}
-
-.miyu-timer-view .pomodoro-tasks-header-title .pomodoro-tasks-count {
-	width: 50px;
-}
-
-.miyu-timer-view .pomodoro-tasks-list,
-.miyu-timer-view .pomodoro-tasks-active {
-	border-top: 1px solid var(--background-modifier-border);
-	width: 100%;
-}
-
-.miyu-timer-view .pomodoro-tasks-item {
+	padding: 0.75rem;
 	display: flex;
 	flex-direction: column;
-	width: 100%;
-	padding: 0.5rem 1rem;
+	gap: 0.5rem;
 }
 
-.miyu-timer-view .pomodoro-tasks-list .pomodoro-tasks-item {
-	cursor: pointer;
+/* 今日番茄钟进度 */
+.miyu-timer-view .miyu-tasks-summary {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+	padding: 0.5rem 0.75rem;
 }
 
-.miyu-timer-view .pomodoro-tasks-toolbar {
-	width: 100%;
-}
-
-.miyu-timer-view .pomodoro-tasks-count {
-	color: var(--text-faint);
-	font-size: 0.8rem;
-	text-wrap: nowrap;
-}
-
-.miyu-timer-view .pomodoro-tasks-filters {
-	padding: 0.5rem 1rem;
-}
-
-.miyu-timer-view .pomodoro-tasks-text-filter {
-	border-top: 1px solid var(--background-modifier-border);
-	padding: 0.5rem 0rem;
-}
-
-.miyu-timer-view .pomodoro-tasks-wrapper input {
-	width: 100%;
-	font-size: 0.8rem;
-	border: none;
-	border-radius: 0;
-	background: transparent;
-}
-
-.miyu-timer-view .pomodoro-tasks-wrapper input:active,
-.miyu-timer-view .pomodoro-tasks-wrapper input:focus {
-	border: none;
-	box-shadow: none;
-}
-
-.miyu-timer-view .pomodoro-tasks-text-filter input {
-	height: 0.8rem;
-}
-
-.miyu-timer-view .pomodoro-tasks-filter {
-	font-size: 0.8rem;
-	padding: 1px 7px;
-	border-radius: 10px;
-	cursor: pointer;
+.miyu-timer-view .miyu-tasks-summary-label {
+	font-size: 0.75rem;
 	color: var(--text-muted);
 }
 
-.miyu-timer-view .pomodoro-tasks-name svg {
-	margin-right: 5px;
-	color: var(--color-blue);
+.miyu-timer-view .miyu-tasks-summary-value {
+	font-size: 1.1rem;
+	font-weight: bold;
 }
 
-.miyu-timer-view .pomodoro-tasks-checked .pomodoro-tasks-name svg {
+.miyu-timer-view .miyu-tasks-summary-value.is-done {
 	color: var(--color-green);
 }
 
-.miyu-timer-view .pomodoro-tasks-name {
-	width: 100%;
+.miyu-timer-view .miyu-tasks-summary-bar {
+	flex: 1;
+	height: 6px;
+	background-color: var(--background-modifier-border);
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.miyu-timer-view .miyu-tasks-summary-bar-fill {
+	height: 100%;
+	background-color: var(--interactive-accent);
+	border-radius: 3px;
+	transition: width 0.3s ease;
+}
+
+/* 工具栏：文件下拉框 + 计数 */
+.miyu-timer-view .miyu-tasks-toolbar {
 	display: flex;
-	align-items: baseline;
-}
-
-.miyu-timer-view .pomodoro-tasks-name .pomodoro-tasks-icon {
-	display: inline-flex;
 	align-items: center;
+	gap: 0.5rem;
 }
 
-.miyu-timer-view .filter-active {
+.miyu-timer-view .miyu-tasks-file-select {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.85rem;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	text-overflow: ellipsis;
+	color: var(--text-normal);
+}
+
+.miyu-timer-view .miyu-tasks-count {
+	color: var(--text-faint);
+	font-size: 0.75rem;
+	white-space: nowrap;
+}
+
+/* 过滤 pill + 搜索 */
+.miyu-timer-view .miyu-tasks-filters {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.miyu-timer-view .miyu-tasks-filter {
+	font-size: 0.75rem;
+	padding: 2px 10px;
+	border-radius: 10px;
+	cursor: pointer;
+	color: var(--text-muted);
+	background: transparent;
+	border: none;
+}
+
+.miyu-timer-view .miyu-tasks-filter:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.miyu-timer-view .miyu-tasks-filter.is-active {
 	background-color: var(--interactive-accent);
 	color: var(--text-on-accent-inverted);
 }
 
-.miyu-timer-view .pomodoro-tasks-item + .pomodoro-tasks-item {
-	border-top: 1px solid var(--background-modifier-border);
+.miyu-timer-view .miyu-tasks-search {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.75rem;
+	background: transparent;
+	border: none;
+	border-bottom: 1px solid var(--background-modifier-border);
+	border-radius: 0;
+	box-shadow: none;
 }
 
-.miyu-timer-view .pomodoro-tasks-checked .pomodoro-tasks-name {
+.miyu-timer-view .miyu-tasks-search:focus {
+	border-bottom-color: var(--interactive-accent);
+	box-shadow: none;
+}
+
+/* 任务行 */
+.miyu-timer-view .miyu-task-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding-top: 0.35rem;
+	padding-bottom: 0.35rem;
+	padding-right: 0.5rem;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.miyu-timer-view .miyu-task-row:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.miyu-timer-view .miyu-task-icon {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	color: var(--color-blue);
+}
+
+.miyu-timer-view .miyu-task-row.is-checked .miyu-task-icon {
+	color: var(--color-green);
+}
+
+.miyu-timer-view .miyu-task-row.is-checked .miyu-task-desc {
 	text-decoration: line-through;
 	color: var(--text-muted);
 }
 
-.miyu-timer-view .pomodoro-tasks-pin {
-	cursor: pointer;
-	padding-right: 3px;
-}
-
-.miyu-timer-view .pomodoro-tasks-remove {
-	cursor: pointer;
-}
-
-.miyu-timer-view .pomodoro-tasks-progress {
-	font-size: 0.7rem;
-	color: var(--text-muted);
-	text-align: end;
-	text-wrap: nowrap;
-	overflow: hidden;
-}
-
-.miyu-timer-view .miyu-pomodoro-tasks-item-desc {
+.miyu-timer-view .miyu-task-desc {
 	flex: 1;
+	min-width: 0;
 	overflow: hidden;
-	width: 100%;
 	pointer-events: none;
-	cursor: pointer;
 }
 
-.miyu-timer-view .miyu-pomodoro-tasks-item-desc * {
+.miyu-timer-view .miyu-task-desc * {
 	font-size: 0.8rem !important;
 }
 
-.miyu-timer-view .miyu-pomodoro-tasks-item-desc p {
+.miyu-timer-view .miyu-task-desc p {
 	width: 100%;
 	line-height: 1.1;
-	height: 2.2em;
 	padding: 0;
 	margin: 0;
 	overflow: hidden;
 	line-break: anywhere;
 }
 
+.miyu-timer-view .miyu-task-pomos {
+	font-size: 0.7rem;
+	color: var(--text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+/* 活动任务行 */
+.miyu-timer-view .miyu-tasks-active {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+}
+
+.miyu-timer-view .miyu-tasks-active .miyu-task-row {
+	background-color: var(--background-modifier-active-hover);
+}
+
+.miyu-timer-view .miyu-task-name-input {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.8rem;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	cursor: default;
+	opacity: 1;
+	text-overflow: ellipsis;
+}
+
+.miyu-timer-view .miyu-task-remove {
+	display: inline-flex;
+	align-items: center;
+	cursor: pointer;
+	color: var(--text-muted);
+}
+
+.miyu-timer-view .miyu-task-remove:hover {
+	color: var(--text-normal);
+}
+
+/* 分组标题 */
+.miyu-timer-view .miyu-task-group {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding-top: 0.4rem;
+	padding-bottom: 0.4rem;
+	padding-right: 0.5rem;
+	cursor: pointer;
+	border-top: 1px solid var(--background-modifier-border);
+	font-weight: bold;
+	font-size: 0.85rem;
+	border-radius: 4px;
+}
+
+.miyu-timer-view .miyu-task-group:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.miyu-timer-view .miyu-task-group-arrow {
+	display: inline-flex;
+	align-items: center;
+	transition: transform 0.15s ease;
+	flex-shrink: 0;
+	color: var(--text-muted);
+}
+
+.miyu-timer-view .miyu-task-group-title {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.miyu-timer-view .miyu-task-group-badge {
+	font-size: 0.7rem;
+	color: var(--text-faint);
+	background-color: var(--background-modifier-hover);
+	border-radius: 8px;
+	padding: 0 6px;
+	line-height: 1.3;
+	flex-shrink: 0;
+}
+
+/* 空状态 */
+.miyu-timer-view .miyu-tasks-empty {
+	padding: 0.75rem 1rem;
+	color: var(--text-faint);
+	font-size: 0.8rem;
+	text-align: center;
+}
 /* Quick settings panel (inside the timer view) */
 .miyu-timer-view .pomodoro-settings-wrapper,
 .miyu-timer-view .pomodoro-settings-list,
@@ -366,73 +457,6 @@ If your plugin does not need CSS, delete this file.
 .miyu-timer-view .pomodoro-settings-item input[type='number']:focus {
 	border: none;
 	box-shadow: none;
-}
-
-/* File dropdown */
-.miyu-timer-view .pomodoro-tasks-file-select {
-	width: 100%;
-	flex: 1;
-	font-size: 0.85rem;
-	background: transparent;
-	border: none;
-	box-shadow: none;
-	text-overflow: ellipsis;
-	color: var(--text-normal);
-}
-
-.miyu-timer-view .pomodoro-tasks-header-title .pomodoro-tasks-file-select {
-	padding-right: 5px;
-}
-
-/* Grouped task tree */
-.miyu-timer-view .pomodoro-tasks-group-header {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	padding-top: 0.4rem;
-	padding-bottom: 0.4rem;
-	cursor: pointer;
-	border-top: 1px solid var(--background-modifier-border);
-	font-weight: bold;
-	font-size: 0.85rem;
-}
-
-.miyu-timer-view .pomodoro-tasks-group-header:hover {
-	background-color: var(--background-modifier-hover);
-}
-
-.miyu-timer-view .pomodoro-tasks-group-arrow {
-	display: inline-flex;
-	align-items: center;
-	transition: transform 0.15s ease;
-	flex-shrink: 0;
-}
-
-.miyu-timer-view .pomodoro-tasks-group-title {
-	flex: 1;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.miyu-timer-view .pomodoro-tasks-group-count {
-	color: var(--text-faint);
-	font-size: 0.75rem;
-	padding-right: 0.25rem;
-}
-
-.miyu-timer-view .pomodoro-tasks-empty {
-	padding: 0.75rem 1rem;
-	color: var(--text-faint);
-	font-size: 0.8rem;
-	text-align: center;
-}
-
-/* Today progress */
-.miyu-timer-view .pomodoro-today {
-	margin-top: 0.5rem;
-	font-size: 0.8rem;
-	color: var(--text-muted);
 }
 
 /* Statistics panel */
@@ -685,8 +709,3 @@ If your plugin does not need CSS, delete this file.
 	padding: 0;
 }
 
-/* 活动任务名称：只读，视觉上像普通文本 */
-.miyu-timer-view .pomodoro-tasks-active input[readonly] {
-	cursor: default;
-	opacity: 1;
-}

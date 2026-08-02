@@ -6,6 +6,7 @@ import type { TaskGroup, TaskItem, TaskStore, TaskTrackerState } from '../types'
 import type { TaskParser } from '../tasks/parser';
 import { collectTasks } from '../tasks/parser';
 import type { TaskTracker } from '../tasks/tracker';
+import type { SessionStore } from '../stats';
 import { pomodoroSettings } from '../settings';
 
 const ICON_CHECK = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check"><path d="M20 6 9 17l-5-5"/></svg>`;
@@ -14,18 +15,19 @@ const ICON_CIRCLE = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="
 
 const ICON_REMOVE = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 
-const ICON_ARROW = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>`;
+const ICON_CHEVRON = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>`;
 
-type FilterStatus = '' | 'todo' | 'completed';
+type FilterStatus = 'todo' | 'completed' | 'all';
+
+const FILTER_ORDER: FilterStatus[] = ['todo', 'completed', 'all'];
 
 /**
- * 任务面板：文件下拉框（激活文件，持久化）+ 标题分组树（嵌套、可折叠、折叠状态持久化）。
- * 搜索/过滤保持分组，空分组隐藏；无标题的顶级任务恒在最前。
+ * 任务面板：今日番茄钟进度卡片 + 文件下拉框 + 待办/已完成/全部过滤 +
+ * 标题分组树（嵌套、可折叠、折叠状态持久化）。
+ * 视觉语言与统计面板一致（圆角卡片、pill 过滤、柔和配色）。
  */
 export class TasksPanel {
 	private plugin: MiyuPlugin;
-
-	private container: HTMLElement;
 
 	private view: ItemView;
 
@@ -33,21 +35,27 @@ export class TasksPanel {
 
 	private tracker: TaskTracker;
 
-	private wrapper: HTMLElement;
+	private stats: SessionStore;
+
+	private root: HTMLElement;
+
+	private summaryValueEl: HTMLElement;
+
+	private summaryBarFill: HTMLElement;
 
 	private fileSelect: HTMLSelectElement;
 
 	private countEl: HTMLElement;
 
-	private activeArea: HTMLElement;
+	private activeEl: HTMLElement;
 
 	private treeEl: HTMLElement;
 
-	private filterEls: Map<FilterStatus, HTMLElement> = new Map();
-
 	private searchEl: HTMLInputElement;
 
-	private status: FilterStatus = '';
+	private filterEls: Map<FilterStatus, HTMLElement> = new Map();
+
+	private status: FilterStatus = 'todo';
 
 	private query = '';
 
@@ -68,43 +76,50 @@ export class TasksPanel {
 		view: ItemView,
 	) {
 		this.plugin = plugin;
-		this.container = container;
 		this.view = view;
 		this.parser = plugin.pomodoro!.parser;
 		this.tracker = plugin.pomodoro!.tracker;
+		this.stats = plugin.pomodoro!.stats;
 		const locale = plugin.settings.language;
 
-		this.wrapper = container.createDiv({ cls: 'pomodoro-tasks-wrapper' });
+		this.root = container.createDiv({ cls: 'miyu-tasks' });
 
-		const header = this.wrapper.createDiv({ cls: 'pomodoro-tasks-header' });
-
-		const titleRow = header.createDiv({
-			cls: 'pomodoro-tasks-header-title',
+		// --- 今日番茄钟进度 ---
+		const summary = this.root.createDiv({ cls: 'miyu-tasks-summary' });
+		summary.createSpan({
+			cls: 'miyu-tasks-summary-label',
+			text: t('stats.today', locale),
+		});
+		this.summaryValueEl = summary.createSpan({
+			cls: 'miyu-tasks-summary-value',
+		});
+		const bar = summary.createDiv({ cls: 'miyu-tasks-summary-bar' });
+		this.summaryBarFill = bar.createDiv({
+			cls: 'miyu-tasks-summary-bar-fill',
 		});
 
-		this.fileSelect = titleRow.createEl('select', {
-			cls: 'pomodoro-tasks-file-select',
+		// --- 文件下拉框 + 任务计数 ---
+		const toolbar = this.root.createDiv({ cls: 'miyu-tasks-toolbar' });
+		this.fileSelect = toolbar.createEl('select', {
+			cls: 'miyu-tasks-file-select',
 		});
 		this.fileSelect.addEventListener('change', () => {
 			plugin.settings.pomodoro.activeFile = this.fileSelect.value;
 			void plugin.saveSettings();
 		});
+		this.countEl = toolbar.createSpan({ cls: 'miyu-tasks-count' });
 
-		this.countEl = titleRow.createSpan({ cls: 'pomodoro-tasks-count' });
-
-		this.activeArea = header.createDiv({ cls: 'pomodoro-tasks-active' });
-
-		const toolbar = header.createDiv({ cls: 'pomodoro-tasks-toolbar' });
-		const filters = toolbar.createDiv({ cls: 'pomodoro-tasks-filters' });
-		for (const status of ['', 'todo', 'completed'] as const) {
+		// --- 过滤 pill + 搜索 ---
+		const filterRow = this.root.createDiv({ cls: 'miyu-tasks-filters' });
+		for (const status of FILTER_ORDER) {
 			const label =
-				status === ''
-					? t('panel.filter.all', locale)
-					: status === 'todo'
-						? t('panel.filter.todo', locale)
-						: t('panel.filter.completed', locale);
-			const el = filters.createSpan({
-				cls: 'pomodoro-tasks-filter',
+				status === 'todo'
+					? t('panel.filter.todo', locale)
+					: status === 'completed'
+						? t('panel.filter.completed', locale)
+						: t('panel.filter.all', locale);
+			const el = filterRow.createEl('button', {
+				cls: `miyu-tasks-filter${status === 'todo' ? ' is-active' : ''}`,
 				text: label,
 			});
 			el.addEventListener('click', () => {
@@ -114,12 +129,9 @@ export class TasksPanel {
 			});
 			this.filterEls.set(status, el);
 		}
-
-		const textFilter = header.createDiv({
-			cls: 'pomodoro-tasks-text-filter',
-		});
-		this.searchEl = textFilter.createEl('input', {
-			type: 'text',
+		this.searchEl = filterRow.createEl('input', {
+			cls: 'miyu-tasks-search',
+			type: 'search',
 			attr: { placeholder: t('panel.search', locale) },
 		});
 		this.searchEl.addEventListener('input', () => {
@@ -127,32 +139,56 @@ export class TasksPanel {
 			this.renderTree();
 		});
 
-		this.treeEl = this.wrapper.createDiv({ cls: 'pomodoro-tasks-tree' });
+		// --- 活动任务 ---
+		this.activeEl = this.root.createDiv({ cls: 'miyu-tasks-active' });
+
+		// --- 分组树 ---
+		this.treeEl = this.root.createDiv({ cls: 'miyu-tasks-tree' });
 
 		this.unsubscribers.push(
 			this.parser.subscribe((state) => {
 				this.taskStore = state;
 				this.renderFileSelect();
+				this.renderSummary();
 				this.renderTree();
 			}),
 		);
 		this.unsubscribers.push(
 			this.tracker.subscribe((state) => {
 				this.trackerState = state;
-				this.renderActiveTask();
+				this.renderActive();
 				this.renderTree();
 			}),
 		);
 		this.unsubscribers.push(
 			pomodoroSettings.subscribe(() => {
 				this.renderFileSelect();
+				this.renderSummary();
 				this.renderTree();
 			}),
 		);
 
 		this.renderFileSelect();
-		this.renderActiveTask();
+		this.renderSummary();
+		this.renderActive();
 		this.renderTree();
+	}
+
+	// ---------- 今日进度 ----------
+
+	private renderSummary() {
+		const goal = this.plugin.settings.pomodoro.dailyGoal;
+		const count = this.stats.todayCompletedCount();
+		if (goal > 0) {
+			this.summaryValueEl.setText(`${count}/${goal}`);
+			const pct = Math.min(100, (count / goal) * 100);
+			this.summaryBarFill.setCssProps({ width: `${pct}%` });
+			this.summaryValueEl.toggleClass('is-done', count >= goal);
+		} else {
+			this.summaryValueEl.setText(String(count));
+			this.summaryBarFill.setCssProps({ width: '0%' });
+			this.summaryValueEl.toggleClass('is-done', false);
+		}
 	}
 
 	// ---------- 文件下拉框 ----------
@@ -178,41 +214,33 @@ export class TasksPanel {
 
 	// ---------- 活动任务 ----------
 
-	private renderActiveTask() {
+	private renderActive() {
 		const task = this.trackerState.task;
-		const activeInput = this.activeArea.querySelector('input');
-		if (activeInput && document.activeElement === activeInput) {
-			if (task && activeInput.value !== task.name) {
-				activeInput.value = task.name;
-			}
-		} else {
-			this.activeArea.empty();
-			if (task) {
-				const item = this.activeArea.createDiv({
-					cls: 'pomodoro-tasks-item',
-				});
-				const name = item.createDiv({ cls: 'pomodoro-tasks-name' });
-				name.createEl('input', {
-					type: 'text',
-					value: task.name,
-					attr: { readonly: 'readonly' },
-				});
-				const remove = name.createSpan({
-					cls: 'pomodoro-tasks-remove',
-				});
-				remove.innerHTML = ICON_REMOVE;
-				remove.addEventListener('click', () => {
-					this.tracker.clear();
-				});
-			}
+		this.activeEl.empty();
+		if (!task) {
+			return;
 		}
+		const row = this.activeEl.createDiv({ cls: 'miyu-task-row is-active' });
+		const icon = row.createSpan({ cls: 'miyu-task-icon' });
+		icon.innerHTML = ICON_CIRCLE;
+		row.createEl('input', {
+			cls: 'miyu-task-name-input',
+			type: 'text',
+			value: task.name,
+			attr: { readonly: 'readonly' },
+		});
+		const remove = row.createSpan({ cls: 'miyu-task-remove' });
+		remove.innerHTML = ICON_REMOVE;
+		remove.addEventListener('click', () => {
+			this.tracker.clear();
+		});
 	}
 
 	// ---------- 分组树 ----------
 
 	private renderTree() {
 		this.treeEl.empty();
-		this.renderActiveTask();
+		this.renderActive();
 
 		const store = this.taskStore;
 		if (!store.filePath) {
@@ -237,9 +265,9 @@ export class TasksPanel {
 		this.renderGroupBlock(visible);
 	}
 
-	/** 过滤分组树：任务匹配，空分组递归隐藏（搜索/过滤时保持分组结构）。 */
+	/** 过滤分组树：任务匹配，空分组递归隐藏。 */
 	private filteredTree(store: TaskStore): TaskStore {
-		if (!this.query && !this.status) {
+		if (!this.query && this.status === 'all') {
 			return store;
 		}
 		const matches = (item: TaskItem) => {
@@ -250,10 +278,8 @@ export class TasksPanel {
 					.toLowerCase()
 					.includes(this.query.toLowerCase());
 			}
-			if (this.status) {
-				if (this.status === 'todo') statusMatch = !item.checked;
-				if (this.status === 'completed') statusMatch = item.checked;
-			}
+			if (this.status === 'todo') statusMatch = !item.checked;
+			if (this.status === 'completed') statusMatch = item.checked;
 			return statusMatch && textMatch;
 		};
 		const filterGroup = (group: TaskGroup): TaskGroup | null => {
@@ -278,15 +304,17 @@ export class TasksPanel {
 	}
 
 	private renderGroupBlock(store: TaskStore) {
-		const list = this.treeEl.createDiv({ cls: 'pomodoro-tasks-list' });
 		for (const task of store.topTasks) {
-			this.renderTaskItem(list, task, 0);
+			this.renderTaskRow(this.treeEl, task, 0);
 		}
 		for (const group of store.groups) {
-			this.renderGroup(list, group, 0);
+			this.renderGroup(this.treeEl, group, 0);
 		}
 		if (store.topTasks.length === 0 && store.groups.length === 0) {
-			this.renderEmpty(list);
+			this.treeEl.createDiv({
+				cls: 'miyu-tasks-empty',
+				text: t('panel.no-tasks', this.plugin.settings.language),
+			});
 		}
 	}
 
@@ -300,22 +328,20 @@ export class TasksPanel {
 		);
 
 		const header = container.createDiv({
-			cls: `pomodoro-tasks-group-header${collapsed ? ' is-collapsed' : ''}`,
+			cls: `miyu-task-group${collapsed ? ' is-collapsed' : ''}`,
 		});
 		header.setCssProps({ paddingLeft: `${0.5 + depth * 0.75}rem` });
-		const arrow = header.createSpan({ cls: 'pomodoro-tasks-group-arrow' });
-		arrow.innerHTML = ICON_ARROW;
-		arrow.setCssProps({
-			transform: collapsed ? '' : 'rotate(90deg)',
-		});
+		const arrow = header.createSpan({ cls: 'miyu-task-group-arrow' });
+		arrow.innerHTML = ICON_CHEVRON;
+		arrow.setCssProps({ transform: collapsed ? '' : 'rotate(90deg)' });
 		header.createSpan({
-			cls: 'pomodoro-tasks-group-title',
+			cls: 'miyu-task-group-title',
 			text: group.title,
 		});
-		const groupCount = group.tasks.length + countNestedTasks(group);
+		const total = group.tasks.length + countNestedTasks(group);
 		header.createSpan({
-			cls: 'pomodoro-tasks-group-count',
-			text: String(groupCount),
+			cls: 'miyu-task-group-badge',
+			text: String(total),
 		});
 		header.addEventListener('click', () => {
 			this.toggleCollapsed(group.id);
@@ -325,14 +351,11 @@ export class TasksPanel {
 			return;
 		}
 
-		const body = container.createDiv({
-			cls: 'pomodoro-tasks-group-body',
-		});
 		for (const task of group.tasks) {
-			this.renderTaskItem(body, task, depth + 1);
+			this.renderTaskRow(container, task, depth + 1);
 		}
 		for (const child of group.children) {
-			this.renderGroup(body, child, depth + 1);
+			this.renderGroup(container, child, depth + 1);
 		}
 	}
 
@@ -349,20 +372,18 @@ export class TasksPanel {
 		void this.plugin.saveSettings();
 	}
 
-	private renderTaskItem(
+	private renderTaskRow(
 		container: HTMLElement,
 		item: TaskItem,
 		depth: number,
 	) {
 		const el = container.createDiv({
-			cls: `pomodoro-tasks-item${item.checked ? ' pomodoro-tasks-checked' : ''}`,
+			cls: `miyu-task-row${item.checked ? ' is-checked' : ''}`,
 		});
-		el.setCssProps({
-			paddingLeft: `${0.5 + depth * 0.75}rem`,
-		});
+		el.setCssProps({ paddingLeft: `${0.5 + depth * 0.75}rem` });
 
 		const progress = this.progress(item);
-		el.style.background = `linear-gradient(to right, rgba(var(--color-green-rgb),0.25) ${progress}%, transparent 0%)`;
+		el.style.background = `linear-gradient(to right, rgba(var(--color-green-rgb),0.16) ${progress}%, transparent ${progress}%)`;
 
 		el.addEventListener('click', () => {
 			void this.tracker.active(item);
@@ -371,25 +392,15 @@ export class TasksPanel {
 			this.showItemMenu(e, item);
 		});
 
-		const name = el.createDiv({ cls: 'pomodoro-tasks-name' });
-		name.createSpan({ cls: 'pomodoro-tasks-icon' }).innerHTML = item
-			.checked
-			? ICON_CHECK
-			: ICON_CIRCLE;
+		const icon = el.createSpan({ cls: 'miyu-task-icon' });
+		icon.innerHTML = item.checked ? ICON_CHECK : ICON_CIRCLE;
 
-		const desc = name.createDiv({ cls: 'miyu-pomodoro-tasks-item-desc' });
+		const desc = el.createDiv({ cls: 'miyu-task-desc' });
 		this.renderMarkdown(item.name, desc);
 
-		el.createDiv({
-			cls: 'pomodoro-tasks-progress',
+		el.createSpan({
+			cls: 'miyu-task-pomos',
 			text: this.progressText(item),
-		});
-	}
-
-	private renderEmpty(container: HTMLElement) {
-		container.createDiv({
-			cls: 'pomodoro-tasks-empty',
-			text: t('panel.no-tasks', this.plugin.settings.language),
 		});
 	}
 
@@ -398,9 +409,7 @@ export class TasksPanel {
 			return 0;
 		}
 		if (item.expectedPomodoros > 0 && item.actualPomodoros >= 0) {
-			return (
-				(item.actualPomodoros / item.expectedPomodoros) * 100
-			);
+			return (item.actualPomodoros / item.expectedPomodoros) * 100;
 		}
 		return 0;
 	}
@@ -427,7 +436,7 @@ export class TasksPanel {
 			? `🍅 x ${actualPomodoros}`
 			: actualPomodoros > 0
 				? `${'🍅'.repeat(actualPomodoros)}`
-				: `- -`;
+				: '';
 	}
 
 	private renderMarkdown(content: string, el: HTMLElement) {
@@ -451,7 +460,7 @@ export class TasksPanel {
 
 	private updateFilterClasses() {
 		for (const [status, el] of this.filterEls) {
-			el.toggleClass('filter-active', status === this.status);
+			el.toggleClass('is-active', status === this.status);
 		}
 	}
 
@@ -459,7 +468,7 @@ export class TasksPanel {
 		for (const unsub of this.unsubscribers) {
 			unsub();
 		}
-		this.wrapper.remove();
+		this.root.remove();
 	}
 }
 

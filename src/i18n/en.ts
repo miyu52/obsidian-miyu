@@ -95,7 +95,6 @@ export const en: Record<string, string> = {
 	'panel.settings': 'Settings',
 	'panel.stats': 'Statistics',
 	'panel.settings.sound': 'Notification Sound',
-	'panel.today-progress': 'Today {count}/{goal}',
 	'panel.select-file': 'Select file…',
 	'panel.no-file': 'No file selected',
 	'panel.file-missing': 'File not found',

@@ -47,7 +47,7 @@ src/
         ├── view.ts          # TimerView (VIEW_TYPE_TIMER = 'miyu-timer-view')
         └── ui/
             ├── TimerPanel.ts         # Timer circle + today progress + 5 buttons
-            ├── TasksPanel.ts         # File dropdown + grouped tree + collapse
+            ├── TasksPanel.ts         # Today progress + dropdown + pill filters + tree
             ├── StatsPanel.ts         # Daily bar chart + task breakdown (new)
             ├── QuickSettingsPanel.ts # Quick settings inside the view
             └── StatusBarTimer.ts     # Status bar item with context menu
@@ -295,6 +295,15 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
   `pomodoro.collapsedSections` keyed by `${path}:${headingLine}`; stale ids are
   harmlessly ignored. Manual md edits are fully supported because parsing is
   stateless full-rebuild; missing blockLink auto-clears the active task.
+- **Tasks panel UI (`ui/TasksPanel.ts`):** redesigned with the SAME visual
+  language as the stats panel (`miyu-tasks-*` / `miyu-task-*` classes: outer
+  box, rounded cards, pill filters). Layout: today-progress card on top
+  (`本日 5/8` + theme progress bar, turns green when goal reached — was moved
+  here from the timer circle), file dropdown + task count, filter pills in
+  order **待办/已完成/全部** (default `todo`), search (underline style), active
+  task row (readonly name + remove), then the grouped tree. Row progress uses
+  a background gradient via `el.style.background` (dynamic value — allowed by
+  lint). Old `pomodoro-tasks-*` classes were fully removed.
 - **Stats panel (5th button):** top row = 本日/本周/本月/总计 four number cards;
   middle = single-week 7-day bar distribution with prev/next week navigation
   (week start follows `pomodoro.weekStart`, default Sunday, "locale default"
