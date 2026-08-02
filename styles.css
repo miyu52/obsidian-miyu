@@ -6,3 +6,364 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+/* ============ Pomodoro timer ============ */
+
+/*
+ * NOTE: all plugin-owned CSS classes and variables use a `miyu-` prefix so
+ * they never collide with the old obsidian-pomodoro-timer plugin's globals
+ * while both plugins are enabled.
+ */
+
+.theme-light,
+.theme-dark {
+	--miyu-pomodoro-elapsed-color: var(--color-green);
+	--miyu-pomodoro-color: var(--text-faint);
+	--miyu-pomodoro-text-color: var(--text-normal);
+	--miyu-pomodoro-dot-color: var(--color-red);
+}
+
+.status-bar-item .miyu-timer {
+	display: inline-flex;
+	align-items: center;
+	padding-top: 0;
+	padding-bottom: 0;
+}
+
+.status-bar-item .miyu-timer .item-icon {
+	padding-top: 0;
+}
+
+/* Timer view panel */
+.miyu-timer-view {
+	height: 100%;
+}
+
+.miyu-timer-view .pomodoro-container {
+	width: 100%;
+	min-width: 200px;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.miyu-timer-view .pomodoro-main {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	z-index: 2;
+}
+
+.miyu-timer-view .pomodoro-ring {
+	position: relative;
+	width: 160px;
+	height: 160px;
+}
+
+.miyu-timer-view .pomodoro-ring svg {
+	-webkit-transform: rotate(-90deg);
+	transform: rotate(-90deg);
+	z-index: 3;
+}
+
+.miyu-timer-view .pomodoro-timer-display {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 160px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	z-index: 4;
+	padding: 30px;
+}
+
+.miyu-timer-view .pomodoro-timer-text {
+	display: block;
+	color: var(--miyu-pomodoro-text-color);
+	font-size: 1.1em;
+	font-weight: bold;
+	margin-block-start: 1rem;
+	margin-block-end: 1.75rem;
+}
+
+.miyu-timer-view .pomodoro-status {
+	font-size: 0.7rem;
+	display: flex;
+	align-items: center;
+}
+
+.miyu-timer-view .pomodoro-status span {
+	display: inline-block;
+}
+
+.miyu-timer-view .pomodoro-circle-track {
+	stroke: var(--miyu-pomodoro-color);
+}
+
+.miyu-timer-view .pomodoro-circle-progress {
+	stroke-dasharray: 440; /* this value is the pixel circumference of the circle */
+	stroke-dashoffset: 440;
+	stroke: var(--miyu-pomodoro-elapsed-color);
+	transition: all 0.2s linear;
+}
+
+.miyu-timer-view .pomodoro-controls {
+	margin-top: 1rem;
+	display: flex;
+	justify-content: space-between;
+	width: 160px;
+}
+
+.miyu-timer-view .pomodoro-control {
+	cursor: pointer;
+}
+
+.miyu-timer-view .pomodoro-control:hover {
+	opacity: 0.7;
+}
+
+.miyu-timer-view .pomodoro-control svg:active {
+	opacity: 0.5;
+}
+
+.miyu-timer-view .pomodoro-extra {
+	width: 100%;
+	margin-top: 2rem;
+}
+
+.miyu-timer-view .breath {
+	width: 5px;
+	height: 5px;
+	margin-top: 5px;
+	display: inline-block;
+	position: absolute;
+	left: 55px;
+	background-color: var(--miyu-pomodoro-dot-color);
+	border-radius: 5px;
+	transform: translate(-50%, -50%);
+	animation: miyu-blink 1s linear infinite;
+}
+
+@keyframes miyu-blink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0;
+	}
+}
+
+/* Task list panel */
+.miyu-timer-view .pomodoro-tasks-wrapper {
+	width: 100%;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+}
+
+.miyu-timer-view .pomodoro-tasks-header-title {
+	width: 100%;
+	background-color: var(--background-modifier-active-hover);
+	padding: 0.5rem 1rem;
+	font-size: 1rem;
+	font-weight: bold;
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-end;
+}
+
+.miyu-timer-view .pomodoro-tasks-header-title .pomodoro-tasks-file-name {
+	flex: 1;
+	text-wrap: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	padding-right: 5px;
+}
+
+.miyu-timer-view .pomodoro-tasks-file-name {
+	cursor: pointer;
+}
+
+.miyu-timer-view .pomodoro-tasks-header-title .pomodoro-tasks-count {
+	width: 50px;
+}
+
+.miyu-timer-view .pomodoro-tasks-list,
+.miyu-timer-view .pomodoro-tasks-active {
+	border-top: 1px solid var(--background-modifier-border);
+	width: 100%;
+}
+
+.miyu-timer-view .pomodoro-tasks-item {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	padding: 0.5rem 1rem;
+}
+
+.miyu-timer-view .pomodoro-tasks-list .pomodoro-tasks-item {
+	cursor: pointer;
+}
+
+.miyu-timer-view .pomodoro-tasks-toolbar {
+	width: 100%;
+}
+
+.miyu-timer-view .pomodoro-tasks-count {
+	color: var(--text-faint);
+	font-size: 0.8rem;
+	text-wrap: nowrap;
+}
+
+.miyu-timer-view .pomodoro-tasks-filters {
+	padding: 0.5rem 1rem;
+}
+
+.miyu-timer-view .pomodoro-tasks-text-filter {
+	border-top: 1px solid var(--background-modifier-border);
+	padding: 0.5rem 0rem;
+}
+
+.miyu-timer-view .pomodoro-tasks-wrapper input {
+	width: 100%;
+	font-size: 0.8rem;
+	border: none;
+	border-radius: 0;
+	background: transparent;
+}
+
+.miyu-timer-view .pomodoro-tasks-wrapper input:active,
+.miyu-timer-view .pomodoro-tasks-wrapper input:focus {
+	border: none;
+	box-shadow: none;
+}
+
+.miyu-timer-view .pomodoro-tasks-text-filter input {
+	height: 0.8rem;
+}
+
+.miyu-timer-view .pomodoro-tasks-filter {
+	font-size: 0.8rem;
+	padding: 1px 7px;
+	border-radius: 10px;
+	cursor: pointer;
+	color: var(--text-muted);
+}
+
+.miyu-timer-view .pomodoro-tasks-name svg {
+	margin-right: 5px;
+	color: var(--color-blue);
+}
+
+.miyu-timer-view .pomodoro-tasks-checked .pomodoro-tasks-name svg {
+	color: var(--color-green);
+}
+
+.miyu-timer-view .pomodoro-tasks-name {
+	width: 100%;
+	display: flex;
+	align-items: baseline;
+}
+
+.miyu-timer-view .pomodoro-tasks-name .pomodoro-tasks-icon {
+	display: inline-flex;
+	align-items: center;
+}
+
+.miyu-timer-view .filter-active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent-inverted);
+}
+
+.miyu-timer-view .pomodoro-tasks-item + .pomodoro-tasks-item {
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.miyu-timer-view .pomodoro-tasks-checked .pomodoro-tasks-name {
+	text-decoration: line-through;
+	color: var(--text-muted);
+}
+
+.miyu-timer-view .pomodoro-tasks-pin {
+	cursor: pointer;
+	padding-right: 3px;
+}
+
+.miyu-timer-view .pomodoro-tasks-remove {
+	cursor: pointer;
+}
+
+.miyu-timer-view .pomodoro-tasks-progress {
+	font-size: 0.7rem;
+	color: var(--text-muted);
+	text-align: end;
+	text-wrap: nowrap;
+	overflow: hidden;
+}
+
+.miyu-timer-view .miyu-pomodoro-tasks-item-desc {
+	flex: 1;
+	overflow: hidden;
+	width: 100%;
+	pointer-events: none;
+	cursor: pointer;
+}
+
+.miyu-timer-view .miyu-pomodoro-tasks-item-desc * {
+	font-size: 0.8rem !important;
+}
+
+.miyu-timer-view .miyu-pomodoro-tasks-item-desc p {
+	width: 100%;
+	line-height: 1.1;
+	height: 2.2em;
+	padding: 0;
+	margin: 0;
+	overflow: hidden;
+	line-break: anywhere;
+}
+
+/* Quick settings panel (inside the timer view) */
+.miyu-timer-view .pomodoro-settings-wrapper,
+.miyu-timer-view .pomodoro-settings-list,
+.miyu-timer-view .pomodoro-settings-item {
+	width: 100%;
+}
+
+.miyu-timer-view .pomodoro-settings-wrapper {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+}
+
+.miyu-timer-view .pomodoro-settings-item {
+	display: flex;
+	font-size: 0.8rem;
+	align-items: center;
+	justify-content: space-between;
+	height: 2rem;
+	padding: 0.5rem 1rem;
+}
+
+.miyu-timer-view .pomodoro-settings-item + .pomodoro-settings-item {
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.miyu-timer-view .pomodoro-settings-item input[type='number'] {
+	font-size: 0.8rem;
+	border: none;
+	border-radius: 0;
+	height: 0.8rem;
+	text-align: end;
+	background: transparent;
+}
+
+.miyu-timer-view .pomodoro-settings-item input[type='number']:active,
+.miyu-timer-view .pomodoro-settings-item input[type='number']:focus {
+	border: none;
+	box-shadow: none;
+}
