@@ -1,6 +1,6 @@
 import { moment } from 'obsidian';
 import type MiyuPlugin from '../../../main';
-import { t, type Locale } from '../../../i18n';
+import { WEEKDAY_KEYS, type I18nKey } from '../../../i18n';
 import type { Unsubscriber } from '../../../core/store';
 import type { TaskStat } from '../types';
 import type { SessionStore } from '../stats';
@@ -67,9 +67,9 @@ export class StatsPanel {
 	// ---------- 顶部：四个数字卡片 ----------
 
 	private renderSummary(container: HTMLElement) {
-		const locale = this.plugin.settings.language;
+
 		const summary = this.stats.summary();
-		const cards: Array<{ key: string; value: number }> = [
+		const cards: Array<{ key: I18nKey; value: number }> = [
 			{ key: 'stats.today', value: summary.today },
 			{ key: 'stats.week', value: summary.week },
 			{ key: 'stats.month', value: summary.month },
@@ -80,7 +80,7 @@ export class StatsPanel {
 			const el = row.createDiv({ cls: 'miyu-stats-card' });
 			el.createDiv({
 				cls: 'miyu-stats-card-label',
-				text: t(card.key, locale),
+				text: this.plugin.t(card.key),
 			});
 			el.createDiv({
 				cls: 'miyu-stats-card-value',
@@ -92,7 +92,7 @@ export class StatsPanel {
 	// ---------- 中部：单周天分布 + 左右切换 ----------
 
 	private renderWeekView(container: HTMLElement) {
-		const locale = this.plugin.settings.language;
+
 		const days = this.stats.weekDayStats(this.weekOffset);
 
 		const section = container.createDiv({ cls: 'miyu-stats-section' });
@@ -100,7 +100,7 @@ export class StatsPanel {
 		const header = section.createDiv({ cls: 'miyu-stats-week-header' });
 		const prev = header.createEl('button', {
 			cls: 'miyu-stats-nav',
-			attr: { 'aria-label': t('stats.prev-week', locale) },
+			attr: { 'aria-label': this.plugin.t('stats.prev-week') },
 		});
 		prev.setText('◀');
 		prev.addEventListener('click', () => {
@@ -117,7 +117,7 @@ export class StatsPanel {
 
 		const next = header.createEl('button', {
 			cls: 'miyu-stats-nav',
-			attr: { 'aria-label': t('stats.next-week', locale) },
+			attr: { 'aria-label': this.plugin.t('stats.next-week') },
 		});
 		next.setText('▶');
 		next.addEventListener('click', () => {
@@ -158,10 +158,7 @@ export class StatsPanel {
 
 	/** 按周起始日排序的星期短名（来自插件 i18n，不依赖 moment 全局 locale）。 */
 	private weekDayLabels(): string[] {
-		const locale = this.plugin.settings.language;
-		const all = [0, 1, 2, 3, 4, 5, 6].map((i) =>
-			t(`stats.weekday.${i}`, locale),
-		);
+		const all = WEEKDAY_KEYS.map((key) => this.plugin.t(key));
 		const dow =
 			this.plugin.settings.pomodoro.weekStart ??
 			moment.localeData().firstDayOfWeek();
@@ -171,7 +168,7 @@ export class StatsPanel {
 	// ---------- 底部：GitHub 风格活跃图（居中 ◀ 年份 ▶ 切换） ----------
 
 	private renderActivity(container: HTMLElement) {
-		const locale = this.plugin.settings.language;
+
 
 		const section = container.createDiv({ cls: 'miyu-stats-section' });
 
@@ -179,7 +176,7 @@ export class StatsPanel {
 		const nav = section.createDiv({ cls: 'miyu-stats-week-header' });
 		const prevBtn = nav.createEl('button', {
 			cls: 'miyu-stats-nav',
-			attr: { 'aria-label': t('stats.prev-year', locale) },
+			attr: { 'aria-label': this.plugin.t('stats.prev-year') },
 		});
 		prevBtn.setText('◀');
 		prevBtn.addEventListener('click', () => {
@@ -188,11 +185,11 @@ export class StatsPanel {
 		});
 		nav.createSpan({
 			cls: 'miyu-stats-year-label',
-			text: this.activityLabel(locale),
+			text: this.activityLabel(),
 		});
 		const nextBtn = nav.createEl('button', {
 			cls: 'miyu-stats-nav',
-			attr: { 'aria-label': t('stats.next-year', locale) },
+			attr: { 'aria-label': this.plugin.t('stats.next-year') },
 		});
 		nextBtn.setText('▶');
 		nextBtn.addEventListener('click', () => {
@@ -224,21 +221,21 @@ export class StatsPanel {
 		const legend = section.createDiv({ cls: 'miyu-heat-legend' });
 		legend.createSpan({
 			cls: 'miyu-heat-legend-text',
-			text: t('stats.less', locale),
+			text: this.plugin.t('stats.less'),
 		});
 		for (let level = 0; level <= 4; level++) {
 			legend.createDiv({ cls: `miyu-heat-cell level-${level}` });
 		}
 		legend.createSpan({
 			cls: 'miyu-heat-legend-text',
-			text: t('stats.more', locale),
+			text: this.plugin.t('stats.more'),
 		});
 	}
 
 	/** 年份导航标签：偏移 0 = 至今；+n = 今年+n-1；-n = 今年-n。 */
-	private activityLabel(locale: Locale): string {
+	private activityLabel(): string {
 		if (this.activityOffset === 0) {
-			return t('stats.year-today', locale);
+			return this.plugin.t('stats.year-today');
 		}
 		return String(this.activityYear());
 	}
@@ -262,7 +259,7 @@ export class StatsPanel {
 	// ---------- 明细 ----------
 
 	private renderDetail(container: HTMLElement) {
-		const locale = this.plugin.settings.language;
+
 		const detail = container.createDiv({ cls: 'miyu-stats-detail' });
 		if (!this.selectedDay) {
 			return;
@@ -272,7 +269,7 @@ export class StatsPanel {
 		const total = tasks.reduce((sum, task) => sum + task.count, 0);
 		detail.createDiv({
 			cls: 'miyu-stats-detail-header',
-			text: `${this.selectedDay} · ${t('stats.day-total', locale, {
+			text: `${this.selectedDay} · ${this.plugin.t('stats.day-total', {
 				count: String(total),
 			})}`,
 		});
@@ -280,7 +277,7 @@ export class StatsPanel {
 		if (tasks.length === 0) {
 			detail.createDiv({
 				cls: 'miyu-stats-detail-empty',
-				text: t('stats.empty', locale),
+				text: this.plugin.t('stats.empty'),
 			});
 			return;
 		}
@@ -290,7 +287,7 @@ export class StatsPanel {
 			const row = detail.createDiv({ cls: 'miyu-stats-task' });
 			row.createSpan({
 				cls: 'miyu-stats-task-name',
-				text: task.name || t('stats.no-task', locale),
+				text: task.name || this.plugin.t('stats.no-task'),
 			});
 			row.createDiv({
 				cls: 'miyu-stats-task-count',

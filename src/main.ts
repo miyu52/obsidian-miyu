@@ -4,49 +4,67 @@ import {
 	MiyuSettingTab,
 	normalizeSettings,
 } from './settings';
-import { registerRandomFileFeature } from './features/random-file';
-import {
-	registerPomodoroFeature,
-	type PomodoroManager,
-} from './features/pomodoro';
+import { t, type I18nKey } from './i18n';
+import type { MiyuFeature } from './features/types';
+import { randomFileFeature } from './features/random-file';
+import { pomodoroFeature, type PomodoroManager } from './features/pomodoro';
+
+/** 全部功能模块（注册表驱动：init → registerCommands → destroy）。 */
+const FEATURES: MiyuFeature[] = [randomFileFeature, pomodoroFeature];
 
 export default class MiyuPlugin extends Plugin {
 	settings!: MiyuSettings;
 	/** Exposed so the settings tab can re-render on language change. */
 	settingTab!: MiyuSettingTab;
-	/** Pomodoro feature state (created on first feature registration). */
+	/** Pomodoro feature state (created by the feature's init). */
 	pomodoro?: PomodoroManager;
-	/**
-	 * Hook invoked after every `saveSettings()`. Features assign this to react
-	 * to settings changes (e.g. update reactive mirrors, refresh UI).
-	 * Only one hook can be set — a feature must chain if it needs more.
-	 */
-	onSettingsChanged?: () => void;
+	/** 设置变化订阅者（saveSettings 后逐个通知）。 */
+	private _settingsChanged = new Set<() => void>();
 	/** Tracked command IDs for re-registration on language change. */
 	private _featureCommandIds: string[] = [];
+
+	/** 按当前语言翻译（用户可见字符串的统一入口）。 */
+	t(key: I18nKey, vars?: Record<string, string>): string {
+		return t(key, this.settings.language, vars);
+	}
+
+	/** 订阅设置变化（saveSettings 之后触发），返回退订函数。 */
+	onSettingsChanged(cb: () => void): () => void {
+		this._settingsChanged.add(cb);
+		return () => {
+			this._settingsChanged.delete(cb);
+		};
+	}
 
 	async onload() {
 		this.settings = normalizeSettings(
 			(await this.loadData()) as Partial<MiyuSettings> | null,
 		);
 
-		this.settingTab = new MiyuSettingTab(this.app, this);
+		this.settingTab = new MiyuSettingTab(this.app, this, FEATURES);
 		this.addSettingTab(this.settingTab);
 
+		for (const feature of FEATURES) {
+			feature.init?.(this);
+		}
 		this._registerFeatures();
 	}
 
 	onunload() {
-		this.pomodoro?.destroy();
+		for (const feature of FEATURES) {
+			feature.destroy?.(this);
+		}
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		this.onSettingsChanged?.();
+		for (const cb of this._settingsChanged) {
+			cb();
+		}
 	}
 
 	/**
-	 * Re-register all features (e.g. after language change).
+	 * Re-register all feature commands (e.g. after language change).
 	 * Removes existing command registrations first.
 	 */
 	reloadFeatures(): void {
@@ -59,7 +77,8 @@ export default class MiyuPlugin extends Plugin {
 
 	/** Internal: register all feature commands. */
 	private _registerFeatures(): void {
-		this._featureCommandIds.push(...registerRandomFileFeature(this));
-		this._featureCommandIds.push(...registerPomodoroFeature(this));
+		for (const feature of FEATURES) {
+			this._featureCommandIds.push(...feature.registerCommands(this));
+		}
 	}
 }

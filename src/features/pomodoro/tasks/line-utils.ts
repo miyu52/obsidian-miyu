@@ -1,7 +1,7 @@
 import {
 	TaskRegularExpressions,
 	type TaskComponents,
-} from './serializer/TaskModels';
+} from './serializer/task-models';
 
 const HASH_TAGS_REG_EXP = /(^|\s)#[^ !@#$%^&*(),.?":{}|<>]+/g;
 

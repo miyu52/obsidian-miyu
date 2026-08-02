@@ -1,6 +1,5 @@
 import type { ItemView } from 'obsidian';
 import type MiyuPlugin from '../../../main';
-import { t } from '../../../i18n';
 import type { Unsubscriber } from '../../../core/store';
 import { circleOffset, modeLabel, type PomodoroTimer } from '../timer';
 import type { TimerDisplay } from '../types';
@@ -72,7 +71,6 @@ export class TimerPanel {
 	) {
 		this.plugin = plugin;
 		this.timer = plugin.pomodoro!.timer;
-		const locale = plugin.settings.language;
 
 		this.root = container.createDiv({ cls: 'pomodoro-container' });
 
@@ -111,7 +109,7 @@ export class TimerPanel {
 
 		const tasksBtn = controls.createDiv({
 			cls: 'pomodoro-control',
-			attr: { 'aria-label': t('panel.tasks', locale) },
+			attr: { 'aria-label': plugin.t('panel.tasks') },
 		});
 		tasksBtn.innerHTML = ICON_LIST_TODO;
 		tasksBtn.addEventListener('click', () => {
@@ -120,7 +118,7 @@ export class TimerPanel {
 
 		this.playBtn = controls.createDiv({
 			cls: 'pomodoro-control',
-			attr: { 'aria-label': t('panel.start', locale) },
+			attr: { 'aria-label': plugin.t('panel.start') },
 		});
 		this.playBtn.addEventListener('click', () => {
 			this.timer.toggleTimer();
@@ -128,7 +126,7 @@ export class TimerPanel {
 
 		const resetBtn = controls.createDiv({
 			cls: 'pomodoro-control',
-			attr: { 'aria-label': t('panel.reset', locale) },
+			attr: { 'aria-label': plugin.t('panel.reset') },
 		});
 		resetBtn.innerHTML = ICON_RESET;
 		resetBtn.addEventListener('click', () => {
@@ -137,7 +135,7 @@ export class TimerPanel {
 
 		const settingsBtn = controls.createDiv({
 			cls: 'pomodoro-control',
-			attr: { 'aria-label': t('panel.settings', locale) },
+			attr: { 'aria-label': plugin.t('panel.settings') },
 		});
 		settingsBtn.innerHTML = ICON_SETTINGS;
 		settingsBtn.addEventListener('click', () => {
@@ -146,7 +144,7 @@ export class TimerPanel {
 
 		const statsBtn = controls.createDiv({
 			cls: 'pomodoro-control',
-			attr: { 'aria-label': t('panel.stats', locale) },
+			attr: { 'aria-label': plugin.t('panel.stats') },
 		});
 		statsBtn.innerHTML = ICON_STATS;
 		statsBtn.addEventListener('click', () => {
@@ -173,9 +171,10 @@ export class TimerPanel {
 	}
 
 	private renderState(state: TimerDisplay) {
-		const locale = this.plugin.settings.language;
 		this.timerTextEl.setText(state.remainedText);
-		this.modeEl.setText(modeLabel(state.mode, locale));
+		this.modeEl.setText(
+			modeLabel(state.mode, this.plugin.settings.language),
+		);
 		this.breathEl.style.display =
 			state.phase === 'RUNNING' ? '' : 'none';
 		this.playBtn.innerHTML = state.phase === 'RUNNING'
@@ -183,9 +182,8 @@ export class TimerPanel {
 			: ICON_PLAY;
 		this.playBtn.setAttribute(
 			'aria-label',
-			t(
+			this.plugin.t(
 				state.phase === 'RUNNING' ? 'panel.pause' : 'panel.start',
-				locale,
 			),
 		);
 		this.progressCircle.style.strokeDashoffset = String(

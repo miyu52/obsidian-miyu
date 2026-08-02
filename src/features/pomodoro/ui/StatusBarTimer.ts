@@ -1,6 +1,5 @@
 import { Menu, setTooltip } from 'obsidian';
 import type MiyuPlugin from '../../../main';
-import { t } from '../../../i18n';
 import type { Unsubscriber } from '../../../core/store';
 import { modeLabel, type PomodoroTimer } from '../timer';
 import type { TimerDisplay } from '../types';
@@ -86,23 +85,22 @@ export class StatusBarTimer {
 
 	private showMenu(e: MouseEvent) {
 		const plugin = this.plugin;
-		const locale = plugin.settings.language;
 		const state = this.current;
 		const menu = new Menu();
 		menu.addItem((item) => {
 			const label =
 				state.phase === 'RUNNING'
-					? t('statusbar.pause', locale)
+					? plugin.t('statusbar.pause')
 					: state.phase === 'PAUSED'
-						? t('statusbar.resume', locale)
-						: t('statusbar.start', locale);
+						? plugin.t('statusbar.resume')
+						: plugin.t('statusbar.start');
 			item.setTitle(label).onClick(() => {
 				this.timer.toggleTimer();
 			});
 		});
 
 		menu.addItem((item) => {
-			item.setTitle(t('statusbar.reset', locale)).onClick(() => {
+			item.setTitle(plugin.t('statusbar.reset')).onClick(() => {
 				this.timer.reset();
 			});
 		});
@@ -110,8 +108,11 @@ export class StatusBarTimer {
 		menu.addItem((item) => {
 			const isWork = state.mode === 'WORK';
 			item.setTitle(
-				t('statusbar.switch-mode', locale, {
-					mode: modeLabel(isWork ? 'BREAK' : 'WORK', locale),
+				plugin.t('statusbar.switch-mode', {
+					mode: modeLabel(
+						isWork ? 'BREAK' : 'WORK',
+						plugin.settings.language,
+					),
 				}),
 			).onClick(() => {
 				this.timer.toggleMode();
@@ -121,7 +122,7 @@ export class StatusBarTimer {
 		menu.addSeparator();
 
 		menu.addItem((item) => {
-			item.setTitle(t('statusbar.autostart', locale));
+			item.setTitle(plugin.t('statusbar.autostart'));
 			item.setChecked(plugin.settings.pomodoro.autoStartNext);
 			item.onClick(async () => {
 				plugin.settings.pomodoro.autoStartNext =
@@ -131,7 +132,7 @@ export class StatusBarTimer {
 		});
 
 		menu.addItem((item) => {
-			item.setTitle(t('statusbar.sound', locale));
+			item.setTitle(plugin.t('statusbar.sound'));
 			item.setChecked(plugin.settings.pomodoro.notificationSound);
 			item.onClick(async () => {
 				plugin.settings.pomodoro.notificationSound =

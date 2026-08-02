@@ -1,16 +1,3 @@
-export type TaskLayoutComponent =
-	// NEW_TASK_FIELD_EDIT_REQUIRED
-	| 'description'
-	| 'priority'
-	| 'recurrenceRule'
-	| 'createdDate'
-	| 'startDate'
-	| 'scheduledDate'
-	| 'dueDate'
-	| 'doneDate'
-	| 'cancelledDate'
-	| 'blockLink';
-
 /**
  * When sorting, make sure low always comes after none. This way any tasks with low will be below any exiting
  * tasks that have no priority which would be the default.

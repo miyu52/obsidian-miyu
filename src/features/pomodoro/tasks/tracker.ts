@@ -8,8 +8,9 @@ import {
 	type Writable,
 } from '../../../core/store';
 import type { TaskItem, TaskTrackerState } from '../types';
-import { DESERIALIZERS, POMODORO_REGEX } from './serializer';
+import { DESERIALIZERS } from './serializer';
 import { extractTaskComponents } from './line-utils';
+import { incrementPomodoroText } from '../pomodoro-count';
 
 const DEFAULT_TRACKER_STATE: TaskTrackerState = {};
 
@@ -200,17 +201,12 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 			}
 
 			let updated: string;
-			const match = components.body.match(POMODORO_REGEX);
-			if (match !== null) {
-				let [actual, expected] = (match[1] ?? '').split('/');
-				actual = actual || '0';
-				let text = `🍅:: ${parseInt(actual) + 1}`;
-				if (expected !== undefined) {
-					text += `/${expected.trim()}`;
-				}
+			const next = incrementPomodoroText(components.body);
+			if (next !== components.body) {
+				// 只去尾部空白——整行 trim() 会误删嵌套任务的缩进
 				updated = line
-					.replace(/🍅:: *(\d* *\/? *\d* *)/, text)
-					.trim();
+					.replace(components.body, next)
+					.replace(/\s+$/, '');
 			} else {
 				const detail = DESERIALIZERS[format].deserialize(
 					components.body,

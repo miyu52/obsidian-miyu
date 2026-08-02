@@ -1,4 +1,5 @@
 import { writable, type Writable } from '../../core/store';
+import { deepMerge } from '../../utils';
 import type {
 	ActiveTaskRef,
 	PomodoroRecord,
@@ -29,6 +30,8 @@ export interface PomodoroSettings {
 	dailyGoal: number;
 	/** 周起始日（0=周日 … 6=周六），null = 跟随 Obsidian 语言环境。 */
 	weekStart: number | null;
+	/** 会话记录存储文件（'' = 存 data.json；配置后存该 md 文件的 miyu:records 块）。 */
+	recordsFile: string;
 	/** 参与番茄钟的 md 文件列表。 */
 	files: string[];
 	/** 当前激活文件（面板下拉框选择，持久化）。 */
@@ -57,6 +60,7 @@ export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
 	taskFormat: 'TASKS',
 	dailyGoal: 0,
 	weekStart: 0,
+	recordsFile: '',
 	files: [],
 	activeFile: '',
 	collapsedSections: [],
@@ -64,6 +68,16 @@ export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
 	activeTask: null,
 	records: [],
 };
+
+/**
+ * 深合并持久化设置与默认值：数组/对象一律克隆，
+ * 避免与 DEFAULT_POMODORO_SETTINGS 共享引用被运行时突变。
+ */
+export function normalizePomodoroSettings(
+	loaded: Partial<PomodoroSettings> | null | undefined,
+): PomodoroSettings {
+	return deepMerge(DEFAULT_POMODORO_SETTINGS, loaded);
+}
 
 /**
  * 响应式镜像：由 index.ts 在每次 saveSettings 后刷新（onSettingsChanged 钩子）。

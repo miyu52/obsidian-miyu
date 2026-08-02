@@ -313,16 +313,15 @@ export function resolveTasks(
 			continue;
 		}
 		const detail = DESERIALIZERS[format].deserialize(components.body);
-
-		const [actual, expected] = detail.pomodoros.split('/');
+		const count = detail.pomodoros;
 
 		cache[lineNr] = {
 			path: file.path,
 			name: detail.description,
 			blockLink: components.blockLink,
 			checked: rawElement.task !== '' && rawElement.task !== ' ',
-			expectedPomodoros: expected ? parseInt(expected) : 0,
-			actualPomodoros: actual === '' ? 0 : parseInt(actual ?? '0'),
+			expectedPomodoros: count?.expected ?? 0,
+			actualPomodoros: count?.actual ?? 0,
 			line: lineNr,
 		};
 	}

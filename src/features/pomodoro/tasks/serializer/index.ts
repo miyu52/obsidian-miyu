@@ -1,10 +1,11 @@
 import type { TaskFormat } from '../../types';
+import type { PomodoroCount } from '../../types';
 import type { Moment } from 'moment';
-import { DataviewTaskSerializer } from './DataviewTaskSerializer';
+import { DataviewTaskSerializer } from './dataview-task-serializer';
 import {
 	DefaultTaskSerializer,
 	DEFAULT_SYMBOLS,
-} from './DefaultTaskSerializer';
+} from './default-task-serializer';
 
 /**
  * A subset of fields of {@link Task} that can be parsed from the textual
@@ -22,7 +23,8 @@ export type TaskDetails = {
 	doneDate: Moment | null;
 	cancelledDate: Moment | null;
 	recurrenceRule: string;
-	pomodoros: string;
+	/** 番茄钟计数（结构化；null = 没有计数）。 */
+	pomodoros: PomodoroCount | null;
 	tags: string[];
 };
 
@@ -46,12 +48,8 @@ export interface TaskDeserializer {
 	deserialize(line: string): TaskDetails;
 }
 
-export { DefaultTaskSerializer, DEFAULT_SYMBOLS } from './DefaultTaskSerializer';
-export { DataviewTaskSerializer } from './DataviewTaskSerializer';
-
-export const POMODORO_REGEX = new RegExp(
-	'(?:(?=[^\\]]+\\])\\[|(?=[^)]+\\))\\() *🍅:: *(\\d* *\\/? *\\d*) *[)\\]](?: *,)?',
-);
+export { DefaultTaskSerializer, DEFAULT_SYMBOLS } from './default-task-serializer';
+export { DataviewTaskSerializer } from './dataview-task-serializer';
 
 export const DESERIALIZERS: Record<TaskFormat, TaskDeserializer> = {
 	TASKS: new DefaultTaskSerializer(DEFAULT_SYMBOLS),

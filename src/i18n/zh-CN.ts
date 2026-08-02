@@ -1,5 +1,7 @@
 /** Chinese (Simplified) locale strings for Miyu plugin. */
-export const zhCN: Record<string, string> = {
+import type { I18nDictionary } from './en';
+
+export const zhCN: I18nDictionary = {
 	// 设置 — 语言
 	'settings.language.name': '语言',
 	'settings.language.desc': '界面语言。命令名称重载插件后生效。',
@@ -66,6 +68,13 @@ export const zhCN: Record<string, string> = {
 	'settings.files.remove': '移除',
 	'settings.files.empty': '尚未添加文件',
 
+	// 设置 — 记录文件
+	'settings.records-file.name': '记录文件',
+	'settings.records-file.desc':
+		'将会话记录存入一个 md 文件（%% miyu:records 代码块）而不是 data.json。文件可读可编辑；损坏的内容会保留为 miyu:error-records 块。留空则使用 data.json。',
+	'settings.records-file.select': '选择文件…',
+	'settings.records-file.unset': '未设置 — 存储于 data.json',
+
 	// 命令名称
 	'command.generate-random-note': '生成随机名称笔记',
 	'command.toggle-timer': '切换番茄钟',
@@ -91,6 +100,7 @@ export const zhCN: Record<string, string> = {
 	'panel.settings': '设置',
 	'panel.stats': '统计',
 	'panel.settings.sound': '通知音效',
+	'panel.settings.daily-goal': '每日目标',
 	'panel.select-file': '选择文件…',
 	'panel.select-file-empty': '未添加文件',
 	'panel.open-source': '打开源文件',
@@ -147,6 +157,10 @@ export const zhCN: Record<string, string> = {
 	'notice.pomodoro.title': '番茄钟',
 	'notice.pomodoro.work': '🍅 你已连续工作 {duration} 分钟。',
 	'notice.pomodoro.break': '🥤 你已休息 {duration} 分钟。',
+	'notice.records-corrupted':
+		'记录文件格式已损坏。原始内容已保留为 {marker} 块，记录已重置。',
+	'notice.records-write-failed':
+		'记录文件写入失败，记录暂时保存在内存中。',
 
 	// 错误
 	'error.create-failed': '创建随机笔记失败：{error}',

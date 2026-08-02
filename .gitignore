@@ -15,6 +15,9 @@ main.js
 # Exclude sourcemaps
 *.map
 
+# Test build artifacts (tsconfig.test.json composite outDir)
+tests/.types
+
 # obsidian
 data.json
 

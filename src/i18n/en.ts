@@ -1,5 +1,5 @@
 /** English locale strings for Miyu plugin. */
-export const en: Record<string, string> = {
+export const en = {
 	// Settings — Language
 	'settings.language.name': 'Language',
 	'settings.language.desc':
@@ -72,6 +72,13 @@ export const en: Record<string, string> = {
 	'settings.files.remove': 'Remove',
 	'settings.files.empty': 'No files added yet',
 
+	// Settings — Records file
+	'settings.records-file.name': 'Records file',
+	'settings.records-file.desc':
+		'Store session records in a markdown file (%% miyu:records block) instead of data.json. The file is readable and editable; corrupted blocks are preserved as a miyu:error-records block. Leave empty to use data.json.',
+	'settings.records-file.select': 'Select…',
+	'settings.records-file.unset': 'Not set — stored in data.json',
+
 	// Settings — Misc
 	// Command names
 	'command.generate-random-note': 'Generate note with random name',
@@ -98,6 +105,7 @@ export const en: Record<string, string> = {
 	'panel.settings': 'Settings',
 	'panel.stats': 'Statistics',
 	'panel.settings.sound': 'Notification Sound',
+	'panel.settings.daily-goal': 'Daily goal',
 	'panel.select-file': 'Select file…',
 	'panel.select-file-empty': 'No files added',
 	'panel.open-source': 'Open source file',
@@ -156,10 +164,20 @@ export const en: Record<string, string> = {
 		'🍅 You have been working for {duration} minutes.',
 	'notice.pomodoro.break':
 		'🥤 You have been breaking for {duration} minutes.',
+	'notice.records-corrupted':
+		'Records file format is corrupted. The original content was preserved as a {marker} block and records were reset.',
+	'notice.records-write-failed':
+		'Failed to write the records file. Records are kept in memory for now.',
 
 	// Errors
 	'error.create-failed': 'Failed to create random note: {error}',
 	'error.max-retries':
 		'Failed to generate a unique file name after 3 attempts.',
 	'error.no-charset': 'At least one character set must be enabled.',
-};
+} satisfies Record<string, string>;
+
+/** 全部 i18n key（编译期校验 t() 的调用）。 */
+export type I18nKey = keyof typeof en;
+
+/** 某个语言必须覆盖所有 key 的字典类型。 */
+export type I18nDictionary = Record<I18nKey, string>;

@@ -18,7 +18,7 @@ export function formatRemained(ms: number): string {
 	return `${min < 10 ? `0${min}` : min} : ${sec < 10 ? `0${sec}` : sec}`;
 }
 
-/** 模式文案。 */
+/** 模式文案（纯函数：locale 由调用方提供）。 */
 export function modeLabel(mode: Mode, locale: Locale): string {
 	return mode === 'WORK' ? t('mode.work', locale) : t('mode.break', locale);
 }
@@ -49,17 +49,19 @@ export class PomodoroTimer implements Readable<TimerDisplay> {
 		this.plugin = plugin;
 		this.tracker = tracker;
 		this.stats = stats;
-		const p = plugin.settings.pomodoro;
 		this.state = {
 			phase: 'IDLE',
 			mode: 'WORK',
 			session: null,
 			accumulatedMs: 0,
 			runningSince: null,
-			autoStartNext: p.autoStartNext,
-			workMinutes: p.workMinutes,
-			breakMinutes: p.breakMinutes,
 		};
+	}
+
+	/** 当前模式的计划分钟数（实时读设置——设置即唯一真源）。 */
+	private plannedMinutesFor(mode: Mode): number {
+		const p = this.plugin.settings.pomodoro;
+		return mode === 'WORK' ? p.workMinutes : p.breakMinutes;
 	}
 
 	subscribe = (run: Subscriber<TimerDisplay>): Unsubscriber => {
@@ -74,8 +76,7 @@ export class PomodoroTimer implements Readable<TimerDisplay> {
 	private display(): TimerDisplay {
 		const s = this.state;
 		const totalMs =
-			(s.session?.plannedMinutes ??
-				(s.mode === 'WORK' ? s.workMinutes : s.breakMinutes)) *
+			(s.session?.plannedMinutes ?? this.plannedMinutesFor(s.mode)) *
 			60000;
 		const elapsedMs =
 			s.runningSince !== null
@@ -150,7 +151,7 @@ export class PomodoroTimer implements Readable<TimerDisplay> {
 		if (!session) {
 			return;
 		}
-		let autoStartNext = false;
+		const autoStartNext = this.plugin.settings.pomodoro.autoStartNext;
 		try {
 			// 会话完成：记录日志（仅 WORK）+ 任务番茄数写回 + 通知（无条件执行）
 			session.actualMs = session.plannedMinutes * 60000;
@@ -165,13 +166,12 @@ export class PomodoroTimer implements Readable<TimerDisplay> {
 			console.error('[miyu] session end handling failed:', e);
 		}
 		this.update((s) => {
-			autoStartNext = s.autoStartNext;
 			s.phase = 'IDLE';
 			s.session = null;
 			s.accumulatedMs = 0;
 			s.runningSince = null;
 			s.mode =
-				s.breakMinutes === 0
+				this.plugin.settings.pomodoro.breakMinutes === 0
 					? 'WORK'
 					: s.mode === 'WORK'
 						? 'BREAK'
@@ -193,8 +193,7 @@ export class PomodoroTimer implements Readable<TimerDisplay> {
 					id: makeSessionId(),
 					mode: s.mode,
 					startedAt: now,
-					plannedMinutes:
-						s.mode === 'WORK' ? s.workMinutes : s.breakMinutes,
+					plannedMinutes: this.plannedMinutesFor(s.mode),
 					actualMs: 0,
 				};
 				s.accumulatedMs = 0;
@@ -242,7 +241,7 @@ export class PomodoroTimer implements Readable<TimerDisplay> {
 			s.accumulatedMs = 0;
 			s.runningSince = null;
 			s.mode =
-				s.breakMinutes === 0
+				this.plugin.settings.pomodoro.breakMinutes === 0
 					? 'WORK'
 					: s.mode === 'WORK'
 						? 'BREAK'
@@ -257,15 +256,9 @@ export class PomodoroTimer implements Readable<TimerDisplay> {
 		this.display().phase === 'RUNNING' ? this.pause() : this.start();
 	}
 
-	/** 设置变化后刷新时长/自动开始镜像。 */
-	setup() {
-		this.update((s) => {
-			const p = this.plugin.settings.pomodoro;
-			s.workMinutes = p.workMinutes;
-			s.breakMinutes = p.breakMinutes;
-			s.autoStartNext = p.autoStartNext;
-			return s;
-		});
+	/** 设置变化后重发一次快照（IDLE 时让 UI 反映新的计划时长）。 */
+	refresh() {
+		this.emit();
 	}
 
 	/** 设置页"播放"按钮：试听当前通知音效。 */
@@ -281,13 +274,12 @@ export class PomodoroTimer implements Readable<TimerDisplay> {
 	}
 
 	private notify(session: PomodoroSession) {
-		const locale = this.plugin.settings.language;
 		const text =
 			session.mode === 'WORK'
-				? t('notice.pomodoro.work', locale, {
+				? this.plugin.t('notice.pomodoro.work', {
 						duration: String(session.plannedMinutes),
 					})
-				: t('notice.pomodoro.break', locale, {
+				: this.plugin.t('notice.pomodoro.break', {
 						duration: String(session.plannedMinutes),
 					});
 
@@ -298,7 +290,7 @@ export class PomodoroTimer implements Readable<TimerDisplay> {
 				// 权限被拒或不可用时回退到应用内 Notice。
 				try {
 					const sysNotification = new window.Notification(
-						t('notice.pomodoro.title', locale),
+						this.plugin.t('notice.pomodoro.title'),
 						{ body: text, silent: true },
 					);
 					sysNotification.onclick = () => {

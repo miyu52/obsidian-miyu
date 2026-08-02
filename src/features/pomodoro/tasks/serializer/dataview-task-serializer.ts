@@ -1,6 +1,6 @@
 import { toInlineFieldRegex } from '../line-utils';
-import { DefaultTaskSerializer } from './DefaultTaskSerializer';
-import { Priority } from './TaskModels';
+import { DefaultTaskSerializer } from './default-task-serializer';
+import { Priority } from './task-models';
 
 /**
  * A symbol map that corresponds to a task format that strives to be compatible

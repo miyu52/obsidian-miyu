@@ -1,6 +1,5 @@
 import { Menu, TFile, type ItemView } from 'obsidian';
 import type MiyuPlugin from '../../../main';
-import { t } from '../../../i18n';
 import type { Unsubscriber } from '../../../core/store';
 import type { TaskFilter, TaskGroup, TaskItem, TaskStore, TaskTrackerState } from '../types';
 import type { TaskParser } from '../tasks/parser';
@@ -8,7 +7,7 @@ import { collectTasks } from '../tasks/parser';
 import type { TaskTracker } from '../tasks/tracker';
 import type { SessionStore } from '../stats';
 import { pomodoroSettings } from '../settings';
-import { FileSuggestModal } from '../../../settings';
+import { FileSuggestModal } from '../../../ui/FileSuggestModal';
 
 const ICON_TASK = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-list-todo"><rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>`;
 
@@ -93,7 +92,7 @@ export class TasksPanel {
 		this.parser = plugin.pomodoro!.parser;
 		this.tracker = plugin.pomodoro!.tracker;
 		this.stats = plugin.pomodoro!.stats;
-		const locale = plugin.settings.language;
+
 		this.status = plugin.settings.pomodoro.taskFilter;
 
 		this.root = container.createDiv({ cls: 'miyu-tasks' });
@@ -102,7 +101,7 @@ export class TasksPanel {
 		const summary = this.root.createDiv({ cls: 'miyu-tasks-summary' });
 		summary.createSpan({
 			cls: 'miyu-tasks-summary-label',
-			text: t('stats.today', locale),
+			text: this.plugin.t('stats.today'),
 		});
 		this.summaryValueEl = summary.createSpan({
 			cls: 'miyu-tasks-summary-value',
@@ -116,7 +115,7 @@ export class TasksPanel {
 		const toolbar = this.root.createDiv({ cls: 'miyu-tasks-toolbar' });
 		this.fileSelectBtn = toolbar.createEl('button', {
 			cls: 'miyu-tasks-file-select',
-			attr: { 'aria-label': t('panel.select-file', locale) },
+			attr: { 'aria-label': this.plugin.t('panel.select-file') },
 		});
 		const fileIcon = this.fileSelectBtn.createSpan({
 			cls: 'miyu-tasks-file-select-icon',
@@ -134,7 +133,7 @@ export class TasksPanel {
 		});
 		this.openBtn = toolbar.createEl('button', {
 			cls: 'miyu-tasks-open',
-			attr: { 'aria-label': t('panel.open-source', locale) },
+			attr: { 'aria-label': this.plugin.t('panel.open-source') },
 		});
 		const openIcon = this.openBtn.createSpan({ cls: 'miyu-tasks-open-icon' });
 		openIcon.innerHTML = ICON_OPEN;
@@ -147,7 +146,7 @@ export class TasksPanel {
 		const filterRow = this.root.createDiv({ cls: 'miyu-tasks-filters' });
 		const prevBtn = filterRow.createEl('button', {
 			cls: 'miyu-tasks-filter-nav',
-			attr: { 'aria-label': t('panel.filter.prev', locale) },
+			attr: { 'aria-label': this.plugin.t('panel.filter.prev') },
 		});
 		prevBtn.setText('◀');
 		prevBtn.addEventListener('click', () => {
@@ -159,7 +158,7 @@ export class TasksPanel {
 		});
 		const nextBtn = filterRow.createEl('button', {
 			cls: 'miyu-tasks-filter-nav',
-			attr: { 'aria-label': t('panel.filter.next', locale) },
+			attr: { 'aria-label': this.plugin.t('panel.filter.next') },
 		});
 		nextBtn.setText('▶');
 		nextBtn.addEventListener('click', () => {
@@ -176,7 +175,7 @@ export class TasksPanel {
 		this.searchEl = searchRow.createEl('input', {
 			cls: 'miyu-tasks-search',
 			type: 'search',
-			attr: { placeholder: t('panel.search', locale) },
+			attr: { placeholder: this.plugin.t('panel.search') },
 		});
 		this.searchEl.addEventListener('input', () => {
 			this.query = this.searchEl.value;
@@ -243,24 +242,24 @@ export class TasksPanel {
 
 	private renderFileSelect() {
 		const p = this.plugin.settings.pomodoro;
-		const locale = this.plugin.settings.language;
+
 		if (p.activeFile) {
 			const name = p.activeFile.split('/').pop() ?? p.activeFile;
 			this.fileSelectLabel.setText(name);
 			this.fileSelectLabel.setAttribute('title', p.activeFile);
 		} else {
-			this.fileSelectLabel.setText(t('panel.select-file', locale));
+			this.fileSelectLabel.setText(this.plugin.t('panel.select-file'));
 			this.fileSelectLabel.removeAttribute('title');
 		}
 		this.openBtn.style.display = p.activeFile ? '' : 'none';
 	}
 
 	private showFileMenu() {
-		const locale = this.plugin.settings.language;
+
 		const p = this.plugin.settings.pomodoro;
 		const menu = new Menu();
 		menu.addItem((item) => {
-			item.setTitle(t('panel.select-file', locale)).onClick(() => {
+			item.setTitle(this.plugin.t('panel.select-file')).onClick(() => {
 				new FileSuggestModal(this.plugin.app, (file) => {
 					if (!p.files.includes(file.path)) {
 						p.files.push(file.path);
@@ -287,7 +286,7 @@ export class TasksPanel {
 		if (p.files.length === 0) {
 			menu.addItem((item) =>
 				item
-					.setTitle(t('panel.select-file-empty', locale))
+					.setTitle(this.plugin.t('panel.select-file-empty'))
 					.setDisabled(true),
 			);
 		}
@@ -342,20 +341,20 @@ export class TasksPanel {
 		const store = this.taskStore;
 		if (!store.filePath) {
 			this.countEl.setText(
-				t('panel.no-file', this.plugin.settings.language),
+				this.plugin.t('panel.no-file'),
 			);
 			return;
 		}
 		if (!store.exists) {
 			this.countEl.setText(
-				t('panel.file-missing', this.plugin.settings.language),
+				this.plugin.t('panel.file-missing'),
 			);
 			return;
 		}
 
 		const visible = this.filteredTree(store);
 		this.countEl.setText(
-			t('panel.tasks-count', this.plugin.settings.language, {
+			this.plugin.t('panel.tasks-count', {
 				count: String(collectTasks(visible).length),
 			}),
 		);
@@ -410,7 +409,7 @@ export class TasksPanel {
 		if (store.topTasks.length === 0 && store.groups.length === 0) {
 			this.treeEl.createDiv({
 				cls: 'miyu-tasks-empty',
-				text: t('panel.no-tasks', this.plugin.settings.language),
+				text: this.plugin.t('panel.no-tasks'),
 			});
 		}
 	}
@@ -538,21 +537,20 @@ export class TasksPanel {
 	}
 
 	private showItemMenu(e: MouseEvent, task: TaskItem) {
-		const locale = this.plugin.settings.language;
+
 		const menu = new Menu();
 		menu.addItem((item) => {
-			item.setTitle(t('panel.open-task', locale)).onClick(() => {
+			item.setTitle(this.plugin.t('panel.open-task')).onClick(() => {
 				this.tracker.openTask(e, task);
 			});
 		});
 		menu.addItem((item) => {
 			item
 				.setTitle(
-					t(
+					this.plugin.t(
 						task.checked
 							? 'panel.uncomplete-task'
 							: 'panel.complete-task',
-						locale,
 					),
 				)
 				.onClick(() => {
@@ -563,12 +561,12 @@ export class TasksPanel {
 	}
 
 	private filterLabelText(): string {
-		const locale = this.plugin.settings.language;
+
 		return this.status === 'todo'
-			? t('panel.filter.todo', locale)
+			? this.plugin.t('panel.filter.todo')
 			: this.status === 'completed'
-				? t('panel.filter.completed', locale)
-				: t('panel.filter.all', locale);
+				? this.plugin.t('panel.filter.completed')
+				: this.plugin.t('panel.filter.all');
 	}
 
 	private cycleFilter(dir: number) {

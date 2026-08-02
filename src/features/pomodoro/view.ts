@@ -1,6 +1,5 @@
 import { ItemView, MarkdownRenderer, type WorkspaceLeaf } from 'obsidian';
 import type MiyuPlugin from '../../main';
-import { t } from '../../i18n';
 import { TimerPanel } from './ui/TimerPanel';
 
 /**
@@ -28,7 +27,7 @@ export class TimerView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return t('view.timer.title', this.plugin.settings.language);
+		return this.plugin.t('view.timer.title');
 	}
 
 	async onOpen() {

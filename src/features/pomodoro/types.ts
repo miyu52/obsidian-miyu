@@ -7,6 +7,12 @@ export type Mode = 'WORK' | 'BREAK';
 
 export type TaskFormat = 'TASKS' | 'DATAVIEW';
 
+/** 番茄钟计数（`🍅:: X` 或 `🍅:: X/Y`）。expected = null 表示未设目标。 */
+export interface PomodoroCount {
+	actual: number;
+	expected: number | null;
+}
+
 /** 任务面板过滤条件（持久化在 pomodoro.taskFilter）。 */
 export type TaskFilter = 'todo' | 'completed' | 'all';
 
@@ -40,9 +46,6 @@ export interface TimerState {
 	accumulatedMs: number;
 	/** 当前运行段起点；非 RUNNING 时为 null。 */
 	runningSince: number | null;
-	autoStartNext: boolean;
-	workMinutes: number;
-	breakMinutes: number;
 }
 
 /** 订阅者看到的视图：原始状态 + 基于墙钟的派生值。 */

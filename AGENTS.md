@@ -20,25 +20,31 @@
 
 ```
 src/
-├── main.ts                  # Plugin lifecycle — keep it MINIMAL
-├── settings.ts              # Shared settings: interface, defaults, settings tab
-├── utils.ts                 # Shared utilities (random string generator)
+├── main.ts                  # Plugin lifecycle + feature registry — keep it MINIMAL
+├── settings.ts              # MiyuSettings types/defaults/normalize + MiyuSettingTab
+├── utils.ts                 # Shared utilities (random string, deepMerge/deepClone)
 ├── global.d.ts              # App type augmentation (app.plugins / internalPlugins)
 ├── core/
-│   └── store.ts             # Minimal reactive store (writable/derived) — no framework
+│   └── store.ts             # Minimal reactive store (writable) — no framework
+├── ui/
+│   ├── FileSuggestModal.ts  # Vault-wide md file picker (shared by settings + panel)
+│   └── settings-helpers.ts  # addNumberInput / addToggleSetting helpers
 ├── i18n/
-│   ├── index.ts             # t() function, Locale type
-│   ├── en.ts                # English locale strings
+│   ├── index.ts             # t() function, Locale type, I18nKey, WEEKDAY_KEYS
+│   ├── en.ts                # English locale strings (source of truth for I18nKey)
 │   └── zh-CN.ts             # Simplified Chinese locale strings
 └── features/
+    ├── types.ts             # MiyuFeature interface (feature module contract)
     ├── random-file.ts       # Feature: generate note with random name
     └── pomodoro/            # Feature: pomodoro timer (multi-file, see below)
-        ├── index.ts         # registerPomodoroFeature() + PomodoroManager assembly
+        ├── index.ts         # pomodoroFeature (MiyuFeature) + PomodoroManager assembly
         ├── types.ts         # ALL shared data models (single source of truth)
-        ├── settings.ts      # PomodoroSettings + defaults + reactive mirror
+        ├── settings.ts      # PomodoroSettings + defaults + normalize + reactive mirror
+        ├── settings-ui.ts   # Pomodoro settings section (rendered by the settings tab)
         ├── timer.ts         # PomodoroTimer state machine (IDLE/RUNNING/PAUSED)
         ├── sound.ts         # Notification sound (base64 data URI + player)
         ├── stats.ts         # SessionStore: PomodoroRecord logging + statistics
+        ├── pomodoro-count.ts# PomodoroCount model + 🍅:: parse/format/increment (pure)
         ├── tasks/
         │   ├── parser.ts    # TaskParser: grouped tree parsing (headings + nesting)
         │   ├── tracker.ts   # TaskTracker: active task + pomodoro counter writeback
@@ -51,49 +57,66 @@ src/
             ├── StatsPanel.ts         # Daily bar chart + task breakdown (new)
             ├── QuickSettingsPanel.ts # Quick settings inside the view
             └── StatusBarTimer.ts     # Status bar item with context menu
+tests/                         # vitest unit tests + stubs/obsidian.ts alias target
 ```
 
 This is a **multi-feature personal toolkit plugin**. Every feature is a self-contained
-module registered from `main.ts`. Each feature exports a `register*Feature(plugin)`
-function that returns an array of registered command IDs.
+module exporting a **`MiyuFeature` object** (`src/features/types.ts`). `main.ts` keeps a
+static `FEATURES` registry and drives the lifecycle:
+
+- `init?(plugin)` — once per plugin load: singletons (views, status bars, events, settings subscriptions)
+- `registerCommands(plugin): string[]` — every load AND language switch (re-registered after `removeCommand`)
+- `destroy?(plugin)` — on plugin unload
+- `renderSettings?(plugin, containerEl, tab)` — renders the feature's settings section
 
 **Simple features** = one file: `src/features/<name>.ts`.
 **Complex features** (multiple classes/UI) = a folder `src/features/<name>/` with an
-`index.ts` exporting `register<Name>Feature(plugin): string[]` plus helper modules.
+`index.ts` exporting the `MiyuFeature` plus helper modules.
 Follow the pomodoro feature as the reference structure.
 
 ### How to add a new feature
 
 1. Create `src/features/<name>.ts` (or `<name>/index.ts` for complex features)
-2. Export a function: `export function registerXxxFeature(plugin: MiyuPlugin): string[]`
+2. Export `export const nameFeature: MiyuFeature = { id, init?, registerCommands, destroy?, renderSettings? }`
 3. Register commands with `plugin.addCommand(...)`, return their IDs.
-4. Add i18n keys to `src/i18n/en.ts` and `src/i18n/zh-CN.ts` for all user-facing strings.
-5. Import and call in `src/main.ts` → `_registerFeatures()`.
-6. If the feature needs settings, add fields to `MiyuSettings` (prefix with feature name),
-   update `DEFAULT_SETTINGS`, and add UI in `MiyuSettingTab.display()`.
+4. Add i18n keys to `src/i18n/en.ts` and `src/i18n/zh-CN.ts` for all user-facing strings
+   (zh-CN is type-checked against en's keys).
+5. Add the feature to the `FEATURES` array in `src/main.ts`.
+6. If the feature needs settings, declare them in the feature folder
+   (interface + defaults + a `normalizeXxxSettings()` using `deepMerge` from `utils.ts`),
+   then wire them into `MiyuSettings` in `src/settings.ts`.
 7. If UI must react to settings changes, subscribe to the feature's own reactive store
-   and update it from `plugin.onSettingsChanged` (see pomodoro `settings-store.ts`).
+   and refresh it via `plugin.onSettingsChanged(cb)` (returns an unsubscribe function).
 
 ### Design rules
 
 - **`main.ts` must stay small** — only `onload()`, `onunload()`, `saveSettings()`,
-  `reloadFeatures()`, and `_registerFeatures()`. It also exposes two generic hooks:
+  `reloadFeatures()`, `_registerFeatures()`, and the `FEATURES` registry. It exposes:
   - `plugin.pomodoro` — feature manager instance (each complex feature may attach state).
-  - `plugin.onSettingsChanged` — called after every `saveSettings()`; features use it to
-    refresh reactive mirrors. Only ONE hook exists — a feature must chain to the previous
-    one if it needs it too.
+  - `plugin.onSettingsChanged(cb)` — **multi-slot** subscription called after every
+    `saveSettings()`; returns an unsubscribe function. No chaining needed.
+  - `plugin.t(key, vars?)` — translation bound to the current language (the ONLY
+    way to translate in feature code; `t(key, locale)` remains for pure helpers).
 - **All feature logic lives in `src/features/`** — one file (or one folder) per feature.
-- **Shared code goes in `src/`** (e.g. `src/core/store.ts`, `src/utils.ts`).
+- **Shared code goes in `src/`** (e.g. `src/core/store.ts`, `src/utils.ts`, `src/ui/`).
 - **Command IDs must be stable** — don't rename them after release.
 - **Use `this.register*` helpers** for anything that needs cleanup.
-- **All user-facing strings go through `t(key, locale)`** — never hardcode English.
+- **All user-facing strings go through i18n** — never hardcode English. Keys are
+  compile-time typed (`I18nKey = keyof typeof en`), so typos fail the build.
 - **Features return `string[]` of command IDs** — enables `reloadFeatures()` to
   unregister/re-register on language change.
 - **No runtime dependencies.** UI is vanilla TS/DOM (no Svelte, no React). Reactive
   state uses `src/core/store.ts`. Do NOT add framework deps without a strong reason.
-- **Singleton-vs-command split:** `register*Feature()` may be called again on language
-  change (`reloadFeatures()`). Guard singleton parts (views, ribbons, status bars,
-  event registration) behind an instance check; only re-register commands.
+- **Singleton-vs-command split:** only `registerCommands()` is called again on language
+  change (`reloadFeatures()`). Singletons (views, ribbons, status bars, event
+  registration, settings subscriptions) live in `init()` — called exactly once per load.
+- **Settings are deep-merged, never shared by reference:** every feature's settings
+  slice has its own `normalizeXxxSettings()` built on `deepMerge()` from `utils.ts`.
+  Arrays/objects are always cloned so runtime mutation can never pollute the module-level
+  `DEFAULT_*` objects. Never `Object.assign` nested settings.
+- **Tests:** pure logic must be testable without Obsidian — keep `obsidian` imports
+  out of pure modules (or behind the test stub `tests/stubs/obsidian.ts`). Run
+  `npm test` (vitest) before/after changes; new pure logic needs tests.
 
 ## i18n
 
@@ -102,6 +125,11 @@ Follow the pomodoro feature as the reference structure.
 - **Translation function:** `t(key, locale, vars?)` from `src/i18n/index.ts`
   - Falls back to English if key is missing in target locale
   - Supports `{var}` placeholder substitution
+  - **Keys are typed:** `I18nKey = keyof typeof en` — wrong keys fail the build;
+    `zh-CN` is typed `Record<I18nKey, string>` so it must cover every key
+- **Bound translator:** `plugin.t(key, vars?)` reads `settings.language` at call
+  time — use it everywhere in feature code instead of passing `locale` around.
+  The dynamic weekday labels use the `WEEKDAY_KEYS: I18nKey[]` array.
 - **Language switching:** settings tab re-renders immediately;
   command names update via `reloadFeatures()` which removes and re-registers all commands
 - **Adding strings:** add keys to both `en.ts` and `zh-CN.ts`
@@ -132,7 +160,8 @@ Follow the pomodoro feature as the reference structure.
 - **Ribbon:** timer icon toggles the panel; **status bar:** optional timer with context menu
 - **Features:** work/break cycles with autostart, task tracking (TASKS / DATAVIEW formats,
   block IDs, pomodoro counters), heading-grouped task tree (nested, collapsible,
-  persisted), session logging to `data.json`, daily bar-chart statistics with
+  persisted), session logging (data.json or a `%% miyu:records` file — see
+  `pomodoro.recordsFile`), daily bar-chart statistics with
   task breakdown, daily goal, notifications (system + sound + custom audio),
   low-FPS mode
 - **Settings:** all in the unified `MiyuSettingTab`
@@ -175,7 +204,8 @@ features must follow the same pattern.
 | `pomodoro.collapsedSections` | `string[]` | `[]` | Collapsed heading ids |
 | `pomodoro.taskFilter` | `TaskFilter` | `'todo'` | Tasks panel filter (`'todo'`/`'completed'`/`'all'`) |
 | `pomodoro.activeTask` | `ActiveTaskRef \| null` | `null` | Active task locator `{path, blockLink}` |
-| `pomodoro.records` | `PomodoroRecord[]` | `[]` | Session log (data.json) |
+| `pomodoro.recordsFile` | `string` | `''` | Records storage file ('' = data.json, else `%% miyu:records` block in that md file) |
+| `pomodoro.records` | `PomodoroRecord[]` | `[]` | Session log (data.json, only used when `recordsFile` is empty) |
 
 ## Build & dev
 
@@ -184,9 +214,18 @@ npm install        # first time
 npm run dev        # watch mode
 npm run build      # production (tsc check + esbuild minify)
 npm run lint       # eslint
+npm test           # vitest unit tests
 ```
 
 Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub releases).
+
+Testing notes:
+- `tests/` runs under vitest; the `obsidian` import is aliased to
+  `tests/stubs/obsidian.ts` (the npm package has no resolvable entry point).
+- Pure logic is extracted (e.g. `pomodoro-count.ts`, `formatRemained`,
+  `deepMerge`) specifically so it can be tested without Obsidian.
+- `tsconfig.test.json` is referenced from `tsconfig.json` only so eslint's
+  project service type-checks `tests/` — plain `tsc` never builds it.
 
 ## Release
 
@@ -205,6 +244,93 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
 > - Encounter a gotcha or Obsidian API quirk
 > - Add a pattern that future features should follow
 > - Find a better way to do something
+
+### 2026-08-03 — Architecture refactor (data models + registry + i18n + tests)
+
+- **Feature registry:** `register*Feature()` functions replaced by `MiyuFeature`
+  objects (`src/features/types.ts`) driven from a static `FEATURES` array in
+  `main.ts`. Lifecycle split is now enforced by the interface: `init()` (once per
+  load — singletons/views/events), `registerCommands()` (every load + language
+  switch), `destroy()`, `renderSettings()`. The old `if (!plugin.pomodoro)` guard
+  is gone. `plugin.onSettingsChanged` became a multi-slot subscription returning
+  an unsubscribe function (no more chaining hacks).
+- **Settings normalization is deep:** `deepMerge`/`deepClone` in `src/utils.ts`.
+  This fixed a real bug — `normalizeSettings` used to spread arrays shallowly, so
+  a fresh install shared the `records`/`files` array reference with
+  `DEFAULT_POMODORO_SETTINGS`, and `SessionStore.record()` mutated the module-level
+  defaults. Never merge settings with `Object.assign`/spread; always
+  `normalizeXxxSettings()` → `deepMerge`.
+- **`SessionStore` owns its records copy:** it deep-copies records from settings on
+  construction, queries its own array, and writes back by REPLACING the settings
+  array (never pushes into the settings reference). Constructor takes a narrow
+  `SessionStoreDeps` interface (satisfied structurally by MiyuPlugin) so stats
+  logic is unit-testable without a plugin instance.
+- **Records storage is switchable** (`pomodoro.recordsFile`): empty → data.json
+  (legacy behavior); a md file path → session records are written to a
+  `%% miyu:records` block in that file (Kanban-plugin style: `%%` comment
+  wrapping a ```` ```json ```` fenced array, one record per line). The block
+  format lives in the pure module `src/features/pomodoro/records-file.ts`
+  (parse/format/repair — fully unit-tested; parsing strips the ```` ```json ````
+  fence and stays compatible with the unfenced legacy format). Corrupted blocks
+  are NEVER rebuilt blindly: the broken content is renamed in place to
+  `%% miyu:error-records` (single, overwritten on repeated corruption) so the
+  user can recover it by hand; new records restart from a fresh block appended
+  at the end of the file. Records load at startup TWICE on purpose: once
+  immediately and again on `workspace.onLayoutReady()` — early in `onload` the
+  vault may not be queryable yet and `getAbstractFileByPath` returns null,
+  which would be misread as "file missing" (same startup gotcha the TaskParser
+  retries around).
+  Writes are a serialized read-modify-write queue (`flushPending`/`flush`):
+  every write re-reads the file first so manual user edits are merged, never
+  overwritten; a failed write keeps the records in `pending` memory and retries
+  on the next write. The memory records sync to the file after each successful
+  write, so manual file edits show up in the stats panel. `parseRecordsContent`
+  takes the LAST records block and drops malformed entries. Note: the file path
+  has NO `saveSettings` chain, so UI refresh is driven by the `onRecordsChanged`
+  dep callback (fires on record and after successful write-back) — the data.json
+  path refreshes via `onSettingsChanged` as usual.
+- **Pomodoro counter model:** `🍅:: X[/Y]` parsing/writing was duplicated in
+  serializer + parser + tracker. It now lives in the pure module
+  `src/features/pomodoro/pomodoro-count.ts` (`PomodoroCount {actual, expected}`,
+  `parsePomodoroCount`, `incrementPomodoroText`, `formatPomodoroCount`);
+  `TaskDetails.pomodoros` is typed `PomodoroCount | null` instead of a raw string.
+  Detection intentionally still only recognizes `[🍅:: X]`/`(🍅:: X)` (bare counts
+  are not parsed — same as before the refactor).
+- **`TimerState` no longer mirrors settings** (`workMinutes`/`breakMinutes`/
+  `autoStartNext` removed; `display()` reads `plugin.settings.pomodoro` live;
+  `setup()` → `refresh()` which only re-emits). Settings are the single source of
+  truth; running sessions keep their plannedMinutes snapshot.
+- **i18n keys are typed:** `I18nKey = keyof typeof en`; `t(key)` and
+  `plugin.t(key, vars?)` (bound to current language) fail the build on typos.
+  `zh-CN` is `Record<I18nKey, string>`, so missing keys are compile errors.
+  Dynamic weekday keys use the `WEEKDAY_KEYS` array. Prefer `plugin.t()` in
+  feature code; keep `t(key, locale)` only in pure helpers (e.g. `modeLabel`).
+- **Settings UI split per feature:** settings.ts is now just the orchestrator
+  (language section + `feature.renderSettings` loop). Pomodoro settings live in
+  `src/features/pomodoro/settings-ui.ts`, random-file settings inside
+  `random-file.ts`. Shared UI moved to `src/ui/` (`FileSuggestModal`,
+  `settings-helpers.ts` with `addNumberInput`/`addToggleSetting`).
+- **Vitest test suite** (`npm test`): 48 tests covering settings normalization,
+  SessionStore stats, pomodoro counter, timer state machine, i18n, store, utils.
+  `tests/stubs/obsidian.ts` provides `moment` (real) + no-op classes; the alias
+  lives in `vitest.config.ts`. `tsconfig.test.json` is referenced from
+  `tsconfig.json` ONLY so eslint's project service type-checks tests (plain
+  `tsc` validates the reference config but never builds it).
+- **Gotcha (fixed in passing):** `incrTaskActual` used `.trim()` on the whole
+  task line, which destroyed the indentation of nested (indented) tasks. It now
+  strips trailing whitespace only.
+- **Known quirk kept on purpose:** a bare `🍅:: 3` (no brackets) is neither parsed
+  by the serializer nor incremented by the tracker — bracketed/parenthesized
+  forms only. Changing this touches serializer symbols + regex and is a behavior
+  change; left for a dedicated feature request.
+- **Declarative settings API deliberately NOT adopted** (decision): Obsidian 1.13+
+  offers `getSettingDefinitions()` (settings search + declarative rendering), but
+  implementing it makes 1.13+ bypass `display()` entirely. Keeping minAppVersion
+  1.7.2 means keeping `display()`; the deprecation warnings are suppressed for
+  `settings.ts` + `pomodoro/settings-ui.ts` in eslint.config.mts with a comment
+  explaining why. Revisit only if minAppVersion is raised to 1.13.0.
+- **obsidian types pin:** `obsidian` devDependency is `^1.13.1` (types only);
+  `display()` deprecation comes from that type bump, not from new code.
 
 ### 2026-08-01 — i18n architecture
 
@@ -228,7 +354,7 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
   is `setInterval` + wall-clock timestamps (drift is impossible since elapsed is
   computed from `Date.now()`, not tick counts). `esbuild.config.mjs` needs ZERO
   changes.
-- **Reactive state** uses the minimal `src/core/store.ts` (`writable`/`derived`),
+- **Reactive state** uses the minimal `src/core/store.ts` (`writable`),
   modeled on svelte/store semantics: subscribers are called synchronously on
   subscribe and on every `set`/`update`. The pomodoro timer uses a plain
   subscriber set instead (see `timer.ts`).
@@ -249,9 +375,11 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
 - **`electron.remote.Notification` is dead** (removed in modern Electron) — replaced
   with HTML5 `window.Notification` (try/catch → Notice fallback). Do NOT reintroduce
   `require('electron').remote`.
-- **Known limitation:** on language switch, the already-open timer panel keeps its
-  construction-time labels until the view is reopened (commands and status bar do
-  update live). Acceptable for now.
+- **Language switch updates live:** all visible text re-renders immediately
+  (commands re-register via `reloadFeatures()`, settings tab re-renders,
+  panels/status bar read `plugin.t()` at render time). The only leftover is
+  the four TimerPanel button `aria-label`s (invisible a11y hints), which keep
+  their construction-time language until the view is reopened — harmless.
 - **ESLint:** `external/` is ignored (vendored third-party code). The
   `@microsoft/sdl/no-inner-html` rules are turned off for pomodoro UI files where
   `innerHTML` is only ever assigned static SVG icon constants (never user input).

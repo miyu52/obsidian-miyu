@@ -1,8 +1,9 @@
 import { moment } from 'obsidian';
 import type { Moment } from 'moment';
 import { extractHashtags, toInlineFieldRegex } from '../line-utils';
+import { parsePomodoroCount } from '../../pomodoro-count';
 import type { TaskDetails, TaskDeserializer } from '.';
-import { Priority, TaskRegularExpressions } from './TaskModels';
+import { Priority, TaskRegularExpressions } from './task-models';
 
 /* Interface describing the symbols that {@link DefaultTaskSerializer}
  * uses to serialize and deserialize tasks.
@@ -282,7 +283,7 @@ export class DefaultTaskSerializer implements TaskDeserializer {
 			doneDate,
 			cancelledDate,
 			recurrenceRule,
-			pomodoros,
+			pomodoros: parsePomodoroCount(pomodoros),
 			tags: extractHashtags(line),
 		};
 	}

@@ -1,5 +1,4 @@
 import type MiyuPlugin from '../../../main';
-import { t } from '../../../i18n';
 import type { Unsubscriber } from '../../../core/store';
 import { pomodoroSettings } from '../settings';
 
@@ -16,6 +15,8 @@ export class QuickSettingsPanel {
 
 	private breakInput: HTMLInputElement;
 
+	private goalInput: HTMLInputElement;
+
 	private autostartInput: HTMLInputElement;
 
 	private soundInput: HTMLInputElement;
@@ -24,15 +25,16 @@ export class QuickSettingsPanel {
 
 	constructor(plugin: MiyuPlugin, container: HTMLElement) {
 		this.plugin = plugin;
-		const locale = plugin.settings.language;
+
 
 		this.root = container.createDiv({ cls: 'pomodoro-settings-wrapper' });
 		const list = this.root.createDiv({ cls: 'pomodoro-settings-list' });
 
 		this.workInput = this.addNumberRow(
 			list,
-			t('mode.work', locale),
+			plugin.t('mode.work'),
 			1,
+			120,
 			(value) => {
 				plugin.settings.pomodoro.workMinutes = value;
 				void plugin.saveSettings();
@@ -41,17 +43,29 @@ export class QuickSettingsPanel {
 
 		this.breakInput = this.addNumberRow(
 			list,
-			t('mode.break', locale),
+			plugin.t('mode.break'),
 			0,
+			60,
 			(value) => {
 				plugin.settings.pomodoro.breakMinutes = value;
 				void plugin.saveSettings();
 			},
 		);
 
+		this.goalInput = this.addNumberRow(
+			list,
+			plugin.t('panel.settings.daily-goal'),
+			0,
+			30,
+			(value) => {
+				plugin.settings.pomodoro.dailyGoal = value;
+				void plugin.saveSettings();
+			},
+		);
+
 		this.autostartInput = this.addToggleRow(
 			list,
-			t('statusbar.autostart', locale),
+			plugin.t('statusbar.autostart'),
 			() => plugin.settings.pomodoro.autoStartNext,
 			(value) => {
 				plugin.settings.pomodoro.autoStartNext = value;
@@ -61,7 +75,7 @@ export class QuickSettingsPanel {
 
 		this.soundInput = this.addToggleRow(
 			list,
-			t('panel.settings.sound', locale),
+			plugin.t('panel.settings.sound'),
 			() => plugin.settings.pomodoro.notificationSound,
 			(value) => {
 				plugin.settings.pomodoro.notificationSound = value;
@@ -87,6 +101,9 @@ export class QuickSettingsPanel {
 		if (document.activeElement !== this.breakInput) {
 			this.breakInput.value = String(p.breakMinutes);
 		}
+		if (document.activeElement !== this.goalInput) {
+			this.goalInput.value = String(p.dailyGoal);
+		}
 		this.autostartInput.checked = p.autoStartNext;
 		this.soundInput.checked = p.notificationSound;
 	}
@@ -95,6 +112,7 @@ export class QuickSettingsPanel {
 		list: HTMLElement,
 		label: string,
 		min: number,
+		max: number,
 		onCommit: (value: number) => void,
 	): HTMLInputElement {
 		const item = list.createDiv({ cls: 'pomodoro-settings-item' });
@@ -102,11 +120,11 @@ export class QuickSettingsPanel {
 		const control = item.createDiv({ cls: 'pomodoro-settings-control' });
 		const input = control.createEl('input', {
 			type: 'number',
-			attr: { min: String(min) },
+			attr: { min: String(min), max: String(max) },
 		});
 		input.addEventListener('change', () => {
 			const value = parseInt(input.value);
-			if (value >= min) {
+			if (!isNaN(value) && value >= min && value <= max) {
 				onCommit(value);
 			} else {
 				this.syncFromSettings();
