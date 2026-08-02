@@ -2,78 +2,93 @@ import {
 	App,
 	PluginSettingTab,
 	Setting,
+	SuggestModal,
+	TFile,
 	moment,
 } from 'obsidian';
 import type MiyuPlugin from './main';
 import { t, type Locale } from './i18n';
-import { appHasDailyNotesPluginLoaded, appHasWeeklyNotesPluginLoaded } from './features/pomodoro/daily-notes';
-import { getTemplater } from './features/pomodoro/task-utils';
-
-export type LogFileType = 'DAILY' | 'WEEKLY' | 'FILE' | 'NONE';
-export type LogLevel = 'ALL' | 'WORK' | 'BREAK';
-export type LogFormat = 'SIMPLE' | 'VERBOSE' | 'CUSTOM';
-export type TaskFormat = 'TASKS' | 'DATAVIEW';
+import {
+	DEFAULT_POMODORO_SETTINGS,
+	type PomodoroSettings,
+} from './features/pomodoro/settings';
+export interface RandomFileSettings {
+	length: number;
+	uppercase: boolean;
+	lowercase: boolean;
+	numbers: boolean;
+	symbols: boolean;
+}
 
 export interface MiyuSettings {
 	language: Locale;
-	randomLength: number;
-	randomUppercase: boolean;
-	randomLowercase: boolean;
-	randomNumbers: boolean;
-	randomSymbols: boolean;
-
-	// Pomodoro timer.
-	// NOTE: key names intentionally match the `obsidian-pomodoro-timer`
-	// plugin's data file so user settings migrate over seamlessly.
-	workLen: number;
-	breakLen: number;
-	autostart: boolean;
-	useStatusBarTimer: boolean;
-	lowFps: boolean;
-	useSystemNotification: boolean;
-	notificationSound: boolean;
-	customSound: string;
-	enableTaskTracking: boolean;
-	showTaskProgress: boolean;
-	taskFormat: TaskFormat;
-	logFile: LogFileType;
-	logFocused: boolean;
-	logPath: string;
-	logLevel: LogLevel;
-	logTemplate: string;
-	logFormat: LogFormat;
+	randomFile: RandomFileSettings;
+	pomodoro: PomodoroSettings;
 }
 
 export const DEFAULT_SETTINGS: MiyuSettings = {
 	language: 'zh-CN',
-	randomLength: 8,
-	randomUppercase: true,
-	randomLowercase: false,
-	randomNumbers: true,
-	randomSymbols: false,
-
-	workLen: 25,
-	breakLen: 5,
-	autostart: false,
-	useStatusBarTimer: false,
-	lowFps: false,
-	useSystemNotification: false,
-	notificationSound: true,
-	customSound: '',
-	enableTaskTracking: false,
-	showTaskProgress: true,
-	taskFormat: 'TASKS',
-	logFile: 'NONE',
-	logFocused: false,
-	logPath: '',
-	logLevel: 'ALL',
-	logTemplate: '',
-	logFormat: 'VERBOSE',
+	randomFile: {
+		length: 8,
+		uppercase: true,
+		lowercase: false,
+		numbers: true,
+		symbols: false,
+	},
+	pomodoro: { ...DEFAULT_POMODORO_SETTINGS },
 };
+
+/**
+ * 合并持久化的设置与默认值（嵌套字段逐项深合并）：
+ * Object.assign 的浅合并会让后新增的嵌套键变成 undefined，
+ * 例如旧 data.json 的 pomodoro 对象没有 weekStart 键 → 回退到语言环境默认。
+ */
+export function normalizeSettings(
+	loaded: Partial<MiyuSettings> | null,
+): MiyuSettings {
+	return {
+		...DEFAULT_SETTINGS,
+		...loaded,
+		randomFile: {
+			...DEFAULT_SETTINGS.randomFile,
+			...loaded?.randomFile,
+		},
+		pomodoro: {
+			...DEFAULT_POMODORO_SETTINGS,
+			...loaded?.pomodoro,
+		},
+	};
+}
 
 /** Helper: get the current locale string from plugin settings. */
 function s(plugin: MiyuPlugin, key: string, vars?: Record<string, string>) {
 	return t(key, plugin.settings.language, vars);
+}
+
+/** 文件选择弹窗：从 vault 中搜索 md 文件。 */
+class FileSuggestModal extends SuggestModal<TFile> {
+	private onPick: (file: TFile) => void;
+
+	constructor(app: App, onPick: (file: TFile) => void) {
+		super(app);
+		this.onPick = onPick;
+	}
+
+	getSuggestions(query: string): TFile[] {
+		const q = query.trim().toLowerCase();
+		return this.app.vault
+			.getMarkdownFiles()
+			.filter((f) => !q || f.path.toLowerCase().includes(q))
+			.slice(0, 30);
+	}
+
+	renderSuggestion(file: TFile, el: HTMLElement) {
+		el.setText(file.path);
+	}
+
+	onChooseSuggestion(file: TFile) {
+		this.onPick(file);
+	}
 }
 
 export class MiyuSettingTab extends PluginSettingTab {
@@ -113,28 +128,28 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setName(s(plugin, 'settings.section.random-file'))
 			.setHeading();
 
-		new Setting(containerEl)
+		const lengthSetting = new Setting(containerEl)
 			.setName(s(plugin, 'settings.random-length.name'))
-			.setDesc(s(plugin, 'settings.random-length.desc'))
-			.addSlider((slider) =>
-				slider
-					.setLimits(1, 64, 1)
-					.setValue(plugin.settings.randomLength)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						plugin.settings.randomLength = value;
-						await plugin.saveSettings();
-					}),
-			);
+			.setDesc(s(plugin, 'settings.random-length.desc'));
+		addNumberInput(
+			lengthSetting,
+			() => plugin.settings.randomFile.length,
+			1,
+			64,
+			(value) => {
+				plugin.settings.randomFile.length = value;
+				void plugin.saveSettings();
+			},
+		);
 
 		new Setting(containerEl)
 			.setName(s(plugin, 'settings.random-uppercase.name'))
 			.setDesc(s(plugin, 'settings.random-uppercase.desc'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.randomUppercase)
+					.setValue(plugin.settings.randomFile.uppercase)
 					.onChange(async (value) => {
-						plugin.settings.randomUppercase = value;
+						plugin.settings.randomFile.uppercase = value;
 						await plugin.saveSettings();
 					}),
 			);
@@ -144,9 +159,9 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setDesc(s(plugin, 'settings.random-lowercase.desc'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.randomLowercase)
+					.setValue(plugin.settings.randomFile.lowercase)
 					.onChange(async (value) => {
-						plugin.settings.randomLowercase = value;
+						plugin.settings.randomFile.lowercase = value;
 						await plugin.saveSettings();
 					}),
 			);
@@ -156,9 +171,9 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setDesc(s(plugin, 'settings.random-numbers.desc'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.randomNumbers)
+					.setValue(plugin.settings.randomFile.numbers)
 					.onChange(async (value) => {
-						plugin.settings.randomNumbers = value;
+						plugin.settings.randomFile.numbers = value;
 						await plugin.saveSettings();
 					}),
 			);
@@ -168,9 +183,9 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setDesc(s(plugin, 'settings.random-symbols.desc'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.randomSymbols)
+					.setValue(plugin.settings.randomFile.symbols)
 					.onChange(async (value) => {
-						plugin.settings.randomSymbols = value;
+						plugin.settings.randomFile.symbols = value;
 						await plugin.saveSettings();
 					}),
 			);
@@ -180,42 +195,42 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setName(s(plugin, 'settings.section.pomodoro'))
 			.setHeading();
 
-		new Setting(containerEl)
-			.setName(s(plugin, 'settings.work-len.name'))
-			.setDesc(s(plugin, 'settings.work-len.desc'))
-			.addSlider((slider) =>
-				slider
-					.setLimits(1, 120, 1)
-					.setValue(plugin.settings.workLen)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						plugin.settings.workLen = value;
-						await plugin.saveSettings();
-					}),
-			);
+		const workSetting = new Setting(containerEl)
+			.setName(s(plugin, 'settings.work-minutes.name'))
+			.setDesc(s(plugin, 'settings.work-minutes.desc'));
+		addNumberInput(
+			workSetting,
+			() => plugin.settings.pomodoro.workMinutes,
+			1,
+			120,
+			(value) => {
+				plugin.settings.pomodoro.workMinutes = value;
+				void plugin.saveSettings();
+			},
+		);
+
+		const breakSetting = new Setting(containerEl)
+			.setName(s(plugin, 'settings.break-minutes.name'))
+			.setDesc(s(plugin, 'settings.break-minutes.desc'));
+		addNumberInput(
+			breakSetting,
+			() => plugin.settings.pomodoro.breakMinutes,
+			0,
+			60,
+			(value) => {
+				plugin.settings.pomodoro.breakMinutes = value;
+				void plugin.saveSettings();
+			},
+		);
 
 		new Setting(containerEl)
-			.setName(s(plugin, 'settings.break-len.name'))
-			.setDesc(s(plugin, 'settings.break-len.desc'))
-			.addSlider((slider) =>
-				slider
-					.setLimits(0, 60, 1)
-					.setValue(plugin.settings.breakLen)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						plugin.settings.breakLen = value;
-						await plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName(s(plugin, 'settings.autostart.name'))
-			.setDesc(s(plugin, 'settings.autostart.desc'))
+			.setName(s(plugin, 'settings.auto-start-next.name'))
+			.setDesc(s(plugin, 'settings.auto-start-next.desc'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.autostart)
+					.setValue(plugin.settings.pomodoro.autoStartNext)
 					.onChange(async (value) => {
-						plugin.settings.autostart = value;
+						plugin.settings.pomodoro.autoStartNext = value;
 						await plugin.saveSettings();
 					}),
 			);
@@ -225,9 +240,9 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setDesc(s(plugin, 'settings.status-bar-timer.desc'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.useStatusBarTimer)
+					.setValue(plugin.settings.pomodoro.showStatusBarTimer)
 					.onChange(async (value) => {
-						plugin.settings.useStatusBarTimer = value;
+						plugin.settings.pomodoro.showStatusBarTimer = value;
 						await plugin.saveSettings();
 					}),
 			);
@@ -237,25 +252,20 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setDesc(s(plugin, 'settings.low-fps.desc'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.lowFps)
+					.setValue(plugin.settings.pomodoro.lowFps)
 					.onChange(async (value) => {
-						plugin.settings.lowFps = value;
+						plugin.settings.pomodoro.lowFps = value;
 						await plugin.saveSettings();
 					}),
 			);
-
-		// --- Pomodoro notification ---
-		new Setting(containerEl)
-			.setName(s(plugin, 'settings.section.notification'))
-			.setHeading();
 
 		new Setting(containerEl)
 			.setName(s(plugin, 'settings.system-notification.name'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.useSystemNotification)
+					.setValue(plugin.settings.pomodoro.systemNotification)
 					.onChange(async (value) => {
-						plugin.settings.useSystemNotification = value;
+						plugin.settings.pomodoro.systemNotification = value;
 						await plugin.saveSettings();
 					}),
 			);
@@ -264,24 +274,26 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setName(s(plugin, 'settings.notification-sound.name'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.notificationSound)
+					.setValue(plugin.settings.pomodoro.notificationSound)
 					.onChange(async (value) => {
-						plugin.settings.notificationSound = value;
+						plugin.settings.pomodoro.notificationSound = value;
 						await plugin.saveSettings();
 						plugin.settingTab.display();
 					}),
 			);
 
-		if (plugin.settings.notificationSound) {
+		if (plugin.settings.pomodoro.notificationSound) {
 			new Setting(containerEl)
 				.setName(s(plugin, 'settings.custom-sound.name'))
 				.setDesc(s(plugin, 'settings.custom-sound.desc'))
 				.addText((text) => {
-					text.inputEl.setCssProps({ width: '100%' });
-					text.setPlaceholder(s(plugin, 'settings.custom-sound.placeholder'));
-					text.setValue(plugin.settings.customSound);
+					text.inputEl.addClass('miyu-setting-input');
+					text.setPlaceholder(
+						s(plugin, 'settings.custom-sound.placeholder'),
+					);
+					text.setValue(plugin.settings.pomodoro.soundFile);
 					text.onChange(async (value) => {
-						plugin.settings.customSound = value;
+						plugin.settings.pomodoro.soundFile = value;
 						await plugin.saveSettings();
 					});
 				})
@@ -289,24 +301,19 @@ export class MiyuSettingTab extends PluginSettingTab {
 					button.setIcon('play');
 					button.setTooltip(s(plugin, 'settings.custom-sound.play'));
 					button.onClick(() => {
-						plugin.pomodoro?.timer.playAudio();
+						plugin.pomodoro?.timer.toggleAudioPreview();
 					});
 				});
 		}
-
-		// --- Pomodoro task ---
-		new Setting(containerEl)
-			.setName(s(plugin, 'settings.section.task'))
-			.setHeading();
 
 		new Setting(containerEl)
 			.setName(s(plugin, 'settings.task-tracking.name'))
 			.setDesc(s(plugin, 'settings.task-tracking.desc'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.enableTaskTracking)
+					.setValue(plugin.settings.pomodoro.taskTracking)
 					.onChange(async (value) => {
-						plugin.settings.enableTaskTracking = value;
+						plugin.settings.pomodoro.taskTracking = value;
 						await plugin.saveSettings();
 					}),
 			);
@@ -315,9 +322,9 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setName(s(plugin, 'settings.task-progress.name'))
 			.addToggle((toggle) =>
 				toggle
-					.setValue(plugin.settings.showTaskProgress)
+					.setValue(plugin.settings.pomodoro.showTaskProgress)
 					.onChange(async (value) => {
-						plugin.settings.showTaskProgress = value;
+						plugin.settings.pomodoro.showTaskProgress = value;
 						await plugin.saveSettings();
 					}),
 			);
@@ -326,191 +333,123 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setName(s(plugin, 'settings.task-format.name'))
 			.addDropdown((dropdown) =>
 				dropdown
-					.addOption(
-						'TASKS',
-						s(plugin, 'settings.task-format.tasks'),
-					)
+					.addOption('TASKS', s(plugin, 'settings.task-format.tasks'))
 					.addOption(
 						'DATAVIEW',
 						s(plugin, 'settings.task-format.dataview'),
 					)
-					.setValue(plugin.settings.taskFormat)
+					.setValue(plugin.settings.pomodoro.taskFormat)
 					.onChange(async (value) => {
-						plugin.settings.taskFormat = value as TaskFormat;
+						plugin.settings.pomodoro.taskFormat =
+							value as PomodoroSettings['taskFormat'];
 						await plugin.saveSettings();
 						plugin.settingTab.display();
 					}),
 			);
 
-		// --- Pomodoro log ---
-		new Setting(containerEl)
-			.setName(s(plugin, 'settings.section.log'))
-			.setHeading();
+		const goalSetting = new Setting(containerEl)
+			.setName(s(plugin, 'settings.daily-goal.name'))
+			.setDesc(s(plugin, 'settings.daily-goal.desc'));
+		addNumberInput(
+			goalSetting,
+			() => plugin.settings.pomodoro.dailyGoal,
+			0,
+			30,
+			(value) => {
+				plugin.settings.pomodoro.dailyGoal = value;
+				void plugin.saveSettings();
+			},
+		);
 
+		// --- 周起始日（参考 calendar 插件的 Start week on 设置） ---
+		const localeDow = moment.localeData().firstDayOfWeek();
+		const localeWeekStart = moment.weekdays()[localeDow] ?? '';
 		new Setting(containerEl)
-			.setName(s(plugin, 'settings.log-file.name'))
+			.setName(s(plugin, 'settings.week-start.name'))
+			.setDesc(s(plugin, 'settings.week-start.desc'))
 			.addDropdown((dropdown) => {
-				dropdown.selectEl.setCssProps({ width: '160px' });
-				dropdown.addOption('NONE', s(plugin, 'settings.log-file.none'));
-				if (appHasDailyNotesPluginLoaded(plugin.app)) {
-					dropdown.addOption(
-						'DAILY',
-						s(plugin, 'settings.log-file.daily'),
-					);
-				}
-				if (appHasWeeklyNotesPluginLoaded(plugin.app)) {
-					dropdown.addOption(
-						'WEEKLY',
-						s(plugin, 'settings.log-file.weekly'),
-					);
-				}
-				dropdown.addOption('FILE', s(plugin, 'settings.log-file.file'));
-				dropdown.setValue(plugin.settings.logFile);
+				dropdown.addOption(
+					'locale',
+					s(plugin, 'settings.week-start.locale', {
+						day: localeWeekStart,
+					}),
+				);
+				moment.weekdays().forEach((day, i) => {
+					dropdown.addOption(String(i), day);
+				});
+				dropdown.setValue(
+					plugin.settings.pomodoro.weekStart === null
+						? 'locale'
+						: String(plugin.settings.pomodoro.weekStart),
+				);
 				dropdown.onChange(async (value) => {
-					plugin.settings.logFile = value as LogFileType;
+					plugin.settings.pomodoro.weekStart =
+						value === 'locale' ? null : parseInt(value);
 					await plugin.saveSettings();
-					plugin.settingTab.display();
 				});
 			});
 
-		if (plugin.settings.logFile !== 'NONE') {
-			if (plugin.settings.logFile === 'FILE') {
-				new Setting(containerEl)
-					.setName(s(plugin, 'settings.log-path.name'))
-					.setDesc(s(plugin, 'settings.log-path.desc'))
-					.addText((text) => {
-						text.inputEl.setCssProps({ width: '300px' });
-						text.setValue(plugin.settings.logPath);
-						text.onChange(async (value) => {
-							plugin.settings.logPath = value;
-							await plugin.saveSettings();
-						});
-					});
-			}
-
-			new Setting(containerEl)
-				.setName(s(plugin, 'settings.log-level.name'))
-				.addDropdown((dropdown) =>
-					dropdown
-						.addOption('ALL', s(plugin, 'settings.log-level.all'))
-						.addOption('WORK', s(plugin, 'settings.log-level.work'))
-						.addOption(
-							'BREAK',
-							s(plugin, 'settings.log-level.break'),
-						)
-						.setValue(plugin.settings.logLevel)
-						.onChange(async (value) => {
-							plugin.settings.logLevel = value as LogLevel;
-							await plugin.saveSettings();
-						}),
-				);
-
-			const hasTemplater = !!getTemplater(plugin.app);
-
-			let example = '';
-			if (plugin.settings.logFormat == 'SIMPLE') {
-				example = `**WORK(25m)**: from ${moment()
-					.subtract(25, 'minutes')
-					.format('HH:mm')} - ${moment().format('HH:mm')}`;
-			}
-			if (plugin.settings.logFormat == 'VERBOSE') {
-				example = `- 🍅 (pomodoro::WORK) (duration:: 25m) (begin:: ${moment()
-					.subtract(25, 'minutes')
-					.format('YYYY-MM-DD HH:mm')}) - (end:: ${moment().format(
-						'YYYY-MM-DD HH:mm',
-					)})`;
-			}
-
-			new Setting(containerEl)
-				.setName(s(plugin, 'settings.log-format.name'))
-				.setDesc(example)
-				.addDropdown((dropdown) =>
-					dropdown
-						.addOption(
-							'SIMPLE',
-							s(plugin, 'settings.log-format.simple'),
-						)
-						.addOption(
-							'VERBOSE',
-							s(plugin, 'settings.log-format.verbose'),
-						)
-						.addOption(
-							'CUSTOM',
-							s(plugin, 'settings.log-format.custom'),
-						)
-						.setValue(plugin.settings.logFormat)
-						.onChange(async (value) => {
-							plugin.settings.logFormat = value as LogFormat;
-							await plugin.saveSettings();
-							plugin.settingTab.display();
-						}),
-				);
-
-			if (plugin.settings.logFormat == 'CUSTOM') {
-				const logTemplate = new Setting(containerEl).setName(
-					s(plugin, 'settings.log-template.name'),
-				);
-				if (hasTemplater) {
-					logTemplate.addTextArea((text) => {
-						text.inputEl.setCssProps({
-							width: '100%',
-							resize: 'vertical',
-						});
-						text.setPlaceholder(
-							s(plugin, 'settings.log-template.placeholder'),
-						);
-						text.setValue(plugin.settings.logTemplate);
-						text.onChange(async (value) => {
-							plugin.settings.logTemplate = value;
-							await plugin.saveSettings();
-						});
-					});
-				} else {
-					logTemplate
-						.setDesc(
-							createFragment((fragment) => {
-								const text1 = fragment.createSpan();
-								text1.setText(
-									s(plugin, 'settings.templater.prefix'),
-								);
-								text1.setCssProps({ color: 'var(--text-error)' });
-								const a = fragment.createEl('a');
-								a.setText(
-									s(plugin, 'settings.templater.link'),
-								);
-								a.href =
-									'obsidian://show-plugin?id=templater-obsidian';
-								const text2 = fragment.createSpan();
-								text2.setText(
-									s(plugin, 'settings.templater.suffix'),
-								);
-								text2.setCssProps({ color: 'var(--text-error)' });
-								fragment.append(text1, a, text2);
-							}),
-						)
-						.addButton((button) => {
-							button.setIcon('refresh-ccw');
-							button.setTooltip(
-								s(plugin, 'settings.templater.refresh'),
-							);
-							button.onClick(() => {
-								this.display();
-							});
-						});
-				}
-			}
-		}
-
-		new Setting(containerEl).addButton((button) => {
-			button.setButtonText(s(plugin, 'settings.restore-defaults'));
-			button.onClick(async () => {
-				plugin.settings = {
-					...DEFAULT_SETTINGS,
-					language: plugin.settings.language,
-				};
-				await plugin.saveSettings();
-				plugin.settingTab.display();
+		new Setting(containerEl)
+			.setName(s(plugin, 'settings.files.name'))
+			.setDesc(s(plugin, 'settings.files.desc'))
+			.addButton((button) => {
+				button.setButtonText(s(plugin, 'settings.files.add'));
+				button.onClick(() => {
+					new FileSuggestModal(plugin.app, (file) => {
+						const p = plugin.settings.pomodoro;
+						if (p.files.includes(file.path)) {
+							return;
+						}
+						p.files.push(file.path);
+						if (!p.activeFile) {
+							p.activeFile = file.path;
+						}
+						void plugin.saveSettings();
+						plugin.settingTab.display();
+					}).open();
+				});
 			});
-		});
+
+		for (const path of plugin.settings.pomodoro.files) {
+			new Setting(containerEl)
+				.setName(path)
+				.addExtraButton((button) => {
+					button.setIcon('trash');
+					button.setTooltip(s(plugin, 'settings.files.remove'));
+					button.onClick(async () => {
+						const p = plugin.settings.pomodoro;
+						p.files = p.files.filter((f) => f !== path);
+						if (p.activeFile === path) {
+							p.activeFile = p.files[0] ?? '';
+						}
+						await plugin.saveSettings();
+						plugin.settingTab.display();
+					});
+				});
+		}
 	}
+}
+
+/** 数字输入框（Obsidian 官方风格）：输入即保存，越界自动回退。 */
+function addNumberInput(
+	setting: Setting,
+	get: () => number,
+	min: number,
+	max: number,
+	set: (value: number) => void,
+) {
+	setting.addText((text) => {
+		text.inputEl.type = 'number';
+		text.inputEl.min = String(min);
+		text.inputEl.max = String(max);
+		text.inputEl.addClass('miyu-setting-input');
+		text.setValue(String(get()));
+		text.onChange(() => {
+			const num = parseInt(text.getValue());
+			if (!isNaN(num) && num >= min && num <= max) {
+				set(num);
+			}
+			text.setValue(String(get()));
+		});
+	});
 }

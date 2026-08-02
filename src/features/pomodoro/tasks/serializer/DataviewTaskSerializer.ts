@@ -1,4 +1,4 @@
-import { toInlineFieldRegex } from '../task-utils';
+import { toInlineFieldRegex } from '../line-utils';
 import { DefaultTaskSerializer } from './DefaultTaskSerializer';
 import { Priority } from './TaskModels';
 

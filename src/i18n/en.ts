@@ -22,13 +22,13 @@ export const en: Record<string, string> = {
 
 	// Settings — Pomodoro section
 	'settings.section.pomodoro': 'Pomodoro timer',
-	'settings.work-len.name': 'Work length',
-	'settings.work-len.desc': 'Minutes per work session',
-	'settings.break-len.name': 'Break length',
-	'settings.break-len.desc':
+	'settings.work-minutes.name': 'Work length',
+	'settings.work-minutes.desc': 'Minutes per work session',
+	'settings.break-minutes.name': 'Break length',
+	'settings.break-minutes.desc':
 		'Minutes per break (set to 0 to always work without breaks)',
-	'settings.autostart.name': 'Auto-start next session',
-	'settings.autostart.desc':
+	'settings.auto-start-next.name': 'Auto-start next session',
+	'settings.auto-start-next.desc':
 		'Automatically start the next session when the current one ends',
 	'settings.status-bar-timer.name': 'Enable status bar timer',
 	'settings.status-bar-timer.desc':
@@ -38,7 +38,6 @@ export const en: Record<string, string> = {
 		'If you encounter high CPU usage, enable this to lower the animation FPS and save CPU resources',
 
 	// Settings — Notification section
-	'settings.section.notification': 'Notification',
 	'settings.system-notification.name': 'Use system notification',
 	'settings.notification-sound.name': 'Sound notification',
 	'settings.custom-sound.name': 'Custom notification audio',
@@ -47,7 +46,6 @@ export const en: Record<string, string> = {
 	'settings.custom-sound.play': 'Play',
 
 	// Settings — Task section
-	'settings.section.task': 'Task',
 	'settings.task-tracking.name': 'Enable task tracking',
 	'settings.task-tracking.desc':
 		'Important: Enabling this feature will automatically add a block ID when activating a task, unless a block ID is already present.',
@@ -56,32 +54,22 @@ export const en: Record<string, string> = {
 	'settings.task-format.tasks': 'Tasks Emoji Format',
 	'settings.task-format.dataview': 'Dataview',
 
-	// Settings — Log section
-	'settings.section.log': 'Log',
-	'settings.log-file.name': 'Log file',
-	'settings.log-file.none': 'None',
-	'settings.log-file.daily': 'Daily note',
-	'settings.log-file.weekly': 'Weekly note',
-	'settings.log-file.file': 'File',
-	'settings.log-path.name': 'Log file path',
-	'settings.log-path.desc': 'The file to log pomodoro sessions to',
-	'settings.log-level.name': 'Log level',
-	'settings.log-level.all': 'All',
-	'settings.log-level.work': 'Work',
-	'settings.log-level.break': 'Break',
-	'settings.log-format.name': 'Log format',
-	'settings.log-format.simple': 'Simple',
-	'settings.log-format.verbose': 'Verbose',
-	'settings.log-format.custom': 'Custom',
-	'settings.log-template.name': 'Log template',
-	'settings.log-template.placeholder': '<% templater script goes here %>',
-	'settings.templater.prefix': 'Requires ',
-	'settings.templater.link': 'Templater',
-	'settings.templater.suffix':
-		' plugin to be enabled, then click the refresh button',
-	'settings.templater.refresh': 'Refresh',
-	'settings.restore-defaults': 'Restore Settings',
+	// Settings — Goal section
+	'settings.daily-goal.name': 'Daily pomodoro goal',
+	'settings.daily-goal.desc':
+		'Number of completed work sessions per day (0 = disabled)',
+	'settings.week-start.name': 'Start week on',
+	'settings.week-start.desc':
+		'Choose what day of the week to start. Select Locale default to use the default specified by moment.js',
+	'settings.week-start.locale': 'Locale default ({day})',
+	// Settings — Files section
+	'settings.files.name': 'Files',
+	'settings.files.desc':
+		'Markdown files whose tasks are tracked by the pomodoro panel. The active file is chosen from the panel dropdown.',
+	'settings.files.add': 'Add file…',
+	'settings.files.remove': 'Remove',
 
+	// Settings — Misc
 	// Command names
 	'command.generate-random-note': 'Generate note with random name',
 	'command.toggle-timer': 'Toggle timer',
@@ -105,14 +93,42 @@ export const en: Record<string, string> = {
 	'panel.pause': 'Pause',
 	'panel.reset': 'Reset',
 	'panel.settings': 'Settings',
+	'panel.stats': 'Statistics',
 	'panel.settings.sound': 'Notification Sound',
-	'panel.settings.log-focused': 'Prefer Saving to Task File',
+	'panel.today-progress': 'Today {count}/{goal}',
+	'panel.select-file': 'Select file…',
+	'panel.no-file': 'No file selected',
+	'panel.file-missing': 'File not found',
+	'panel.no-tasks': 'No tasks',
 	'panel.tasks-count': '{count} tasks',
 	'panel.search': 'Search...',
 	'panel.filter.all': 'All',
 	'panel.filter.todo': 'Todo',
 	'panel.filter.completed': 'Completed',
 	'panel.open-task': 'Open',
+
+	// Statistics panel
+	'stats.today': 'Today',
+	'stats.week': 'This week',
+	'stats.month': 'This month',
+	'stats.total': 'Total',
+	'stats.prev-week': 'Previous week',
+	'stats.next-week': 'Next week',
+	'stats.year-today': 'Up to now',
+	'stats.prev-year': 'Previous year',
+	'stats.next-year': 'Next year',
+	'stats.less': 'Less',
+	'stats.more': 'More',
+	'stats.weekday.0': 'Sun',
+	'stats.weekday.1': 'Mon',
+	'stats.weekday.2': 'Tue',
+	'stats.weekday.3': 'Wed',
+	'stats.weekday.4': 'Thu',
+	'stats.weekday.5': 'Fri',
+	'stats.weekday.6': 'Sat',
+	'stats.day-total': '{count} pomodoros',
+	'stats.empty': 'No records',
+	'stats.no-task': '(No task)',
 
 	// Status bar menu
 	'statusbar.start': 'Start',
@@ -132,7 +148,6 @@ export const en: Record<string, string> = {
 		'🍅 You have been working for {duration} minutes.',
 	'notice.pomodoro.break':
 		'🥤 You have been breaking for {duration} minutes.',
-	'notice.invalid-template': 'Invalid template',
 
 	// Errors
 	'error.create-failed': 'Failed to create random note: {error}',

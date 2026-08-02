@@ -41,7 +41,7 @@ export class TimerView extends ItemView {
 		this.panel = null;
 	}
 
-	/** Render markdown into an element (used by the tasks panel). */
+	/** 渲染任务正文 markdown。 */
 	renderMarkdown(content: string, el: HTMLElement) {
 		void MarkdownRenderer.render(
 			this.plugin.app,

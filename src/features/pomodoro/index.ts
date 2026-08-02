@@ -1,55 +1,36 @@
-import { Notice, TFile } from 'obsidian';
+import { Notice } from 'obsidian';
 import type MiyuPlugin from '../../main';
 import { t } from '../../i18n';
-import { DEFAULT_SETTINGS, type MiyuSettings } from '../../settings';
-import Timer from './Timer';
-import Tasks from './Tasks';
-import TaskTracker from './TaskTracker';
-import { TimerView, VIEW_TYPE_TIMER } from './TimerView';
-import { StatusBarTimer } from './StatusBarTimer';
-import { pomodoroSettings } from './settings-store';
+import type { Mode } from './types';
+import { PomodoroTimer, modeLabel } from './timer';
+import { TaskParser } from './tasks/parser';
+import { TaskTracker } from './tasks/tracker';
+import { SessionStore } from './stats';
+import { TimerView, VIEW_TYPE_TIMER } from './view';
+import { StatusBarTimer } from './ui/StatusBarTimer';
+import { pomodoroSettings } from './settings';
 
-/** Pomodoro feature state, attached to the plugin instance. */
+/** 番茄钟功能状态，挂在插件实例上。 */
 export interface PomodoroManager {
-	timer: Timer;
-	tasks: Tasks;
+	timer: PomodoroTimer;
+	parser: TaskParser;
 	tracker: TaskTracker;
+	stats: SessionStore;
 	statusBar: StatusBarTimer;
+	/** 由 TimerPanel 构造时注入：打开统计面板（通知点击等入口）。 */
+	openStatsPanel: (() => void) | null;
 	destroy(): void;
 }
-
-/** Settings keys owned by this feature (used for legacy data migration). */
-const POMODORO_SETTING_KEYS = [
-	'workLen',
-	'breakLen',
-	'autostart',
-	'useStatusBarTimer',
-	'lowFps',
-	'useSystemNotification',
-	'notificationSound',
-	'customSound',
-	'enableTaskTracking',
-	'showTaskProgress',
-	'taskFormat',
-	'logFile',
-	'logFocused',
-	'logPath',
-	'logLevel',
-	'logTemplate',
-	'logFormat',
-] as const;
-
-/** Old plugin IDs whose data files we can migrate from, in priority order. */
-const LEGACY_PLUGIN_IDS = ['obsidian-pomodoro-timer'];
 
 export function registerPomodoroFeature(plugin: MiyuPlugin): string[] {
 	const locale = plugin.settings.language;
 
 	if (!plugin.pomodoro) {
 		// --- Singleton parts: created once per plugin load ---
-		const timer = new Timer(plugin);
 		const tracker = new TaskTracker(plugin);
-		const tasks = new Tasks(plugin, tracker);
+		const stats = new SessionStore(plugin);
+		const timer = new PomodoroTimer(plugin, tracker, stats);
+		const parser = new TaskParser(plugin, tracker);
 
 		const statusBarEl = plugin.addStatusBarItem();
 		statusBarEl.className = `${statusBarEl.className} mod-clickable`;
@@ -57,13 +38,15 @@ export function registerPomodoroFeature(plugin: MiyuPlugin): string[] {
 
 		plugin.pomodoro = {
 			timer,
-			tasks,
+			parser,
 			tracker,
+			stats,
 			statusBar,
+			openStatsPanel: null,
 			destroy() {
 				timer.destroy();
-				tasks.destroy();
-				tracker.destory();
+				parser.destroy();
+				tracker.destroy();
 				statusBar.destroy();
 			},
 		};
@@ -81,14 +64,12 @@ export function registerPomodoroFeature(plugin: MiyuPlugin): string[] {
 			},
 		);
 
-		// Keep the reactive settings mirror in sync on every settings save.
+		// 设置变化 → 刷新镜像 + 计时器
 		plugin.onSettingsChanged = () => {
-			pomodoroSettings.set(plugin.settings);
-			plugin.pomodoro?.timer.setupTimer();
+			pomodoroSettings.set(plugin.settings.pomodoro);
+			plugin.pomodoro?.timer.setup();
 		};
-		pomodoroSettings.set(plugin.settings);
-
-		void migrateLegacySettings(plugin);
+		pomodoroSettings.set(plugin.settings.pomodoro);
 	}
 
 	// --- Commands: re-registered on language change (stable IDs) ---
@@ -121,11 +102,10 @@ export function registerPomodoroFeature(plugin: MiyuPlugin): string[] {
 		id: 'toggle-mode',
 		name: t('command.toggle-mode', locale),
 		callback: () => {
-			plugin.pomodoro?.timer.toggleMode((st) => {
-				const mode = st.mode === 'WORK' ? 'work' : 'break';
+			plugin.pomodoro?.timer.toggleMode((mode: Mode) => {
 				new Notice(
 					t('notice.timer-mode', locale, {
-						mode: t(`mode.${mode}`, locale),
+						mode: modeLabel(mode, locale),
 					}),
 				);
 			});
@@ -168,60 +148,4 @@ async function activateView(plugin: MiyuPlugin) {
 	}
 
 	void workspace.revealLeaf(leaf);
-}
-
-/**
- * One-time migration from the old `obsidian-pomodoro-timer` plugin's data
- * file, so the user keeps their settings with zero action.
- * Only runs while none of the pomodoro settings have been customized in Miyu
- * (i.e. everything is still at default) — afterwards it never applies again.
- */
-async function migrateLegacySettings(plugin: MiyuPlugin) {
-	try {
-		const hasCustomSettings = POMODORO_SETTING_KEYS.some(
-			(key) =>
-				plugin.settings[key] !==
-				DEFAULT_SETTINGS[key as keyof MiyuSettings],
-		);
-		if (hasCustomSettings) {
-			return;
-		}
-
-		for (const pluginId of LEGACY_PLUGIN_IDS) {
-			const file = plugin.app.vault.getAbstractFileByPath(
-				`.obsidian/plugins/${pluginId}/data.json`,
-			);
-			if (!file || !(file instanceof TFile)) {
-				continue;
-			}
-			const data = JSON.parse(
-				await plugin.app.vault.cachedRead(file),
-			) as unknown;
-			if (typeof data !== 'object' || data === null) {
-				continue;
-			}
-			const dataObj = data as Record<string, unknown>;
-			let changed = false;
-			for (const key of POMODORO_SETTING_KEYS) {
-				if (key in dataObj) {
-					const value = dataObj[key];
-					if (typeof value === typeof DEFAULT_SETTINGS[key]) {
-						(
-							plugin.settings as unknown as Record<
-								string,
-								unknown
-							>
-						)[key] = value;
-						changed = true;
-					}
-				}
-			}
-			if (changed) {
-				await plugin.saveSettings();
-			}
-			return;
-		}
-	} catch (e) {
-		console.warn('[miyu] pomodoro settings migration failed:', e);
-	}
 }

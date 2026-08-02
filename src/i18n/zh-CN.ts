@@ -19,12 +19,12 @@ export const zhCN: Record<string, string> = {
 
 	// 设置 — 番茄钟
 	'settings.section.pomodoro': '番茄钟',
-	'settings.work-len.name': '工作时长',
-	'settings.work-len.desc': '每个工作会话的分钟数',
-	'settings.break-len.name': '休息时长',
-	'settings.break-len.desc': '每次休息的分钟数（设为 0 则一直工作不休）',
-	'settings.autostart.name': '自动开始下一会话',
-	'settings.autostart.desc': '当前会话结束后自动开始下一会话',
+	'settings.work-minutes.name': '工作时长',
+	'settings.work-minutes.desc': '每个工作会话的分钟数',
+	'settings.break-minutes.name': '休息时长',
+	'settings.break-minutes.desc': '每次休息的分钟数（设为 0 则一直工作不休）',
+	'settings.auto-start-next.name': '自动开始下一会话',
+	'settings.auto-start-next.desc': '当前会话结束后自动开始下一会话',
 	'settings.status-bar-timer.name': '启用状态栏计时器',
 	'settings.status-bar-timer.desc':
 		'在状态栏显示计时器（左键切换开始/暂停，右键打开菜单）',
@@ -33,7 +33,6 @@ export const zhCN: Record<string, string> = {
 		'若遇到高 CPU 占用，可开启此选项降低动画帧率以节省 CPU 资源',
 
 	// 设置 — 通知
-	'settings.section.notification': '通知',
 	'settings.system-notification.name': '使用系统通知',
 	'settings.notification-sound.name': '声音通知',
 	'settings.custom-sound.name': '自定义通知音效',
@@ -42,39 +41,26 @@ export const zhCN: Record<string, string> = {
 	'settings.custom-sound.play': '播放',
 
 	// 设置 — 任务
-	'settings.section.task': '任务',
-	'settings.task-tracking.name': '启用任务追踪',
-	'settings.task-tracking.desc':
+	'settings.task-tracking.name': '启用任务追踪',	'settings.task-tracking.desc':
 		'注意：启用此功能后，激活任务时会自动为任务添加块 ID（除非已有块 ID）。',
 	'settings.task-progress.name': '显示任务进度背景',
 	'settings.task-format.name': '任务格式',
 	'settings.task-format.tasks': '任务 Emoji 格式',
 	'settings.task-format.dataview': 'Dataview',
 
-	// 设置 — 日志
-	'settings.section.log': '日志',
-	'settings.log-file.name': '日志文件',
-	'settings.log-file.none': '无',
-	'settings.log-file.daily': '日记',
-	'settings.log-file.weekly': '周记',
-	'settings.log-file.file': '文件',
-	'settings.log-path.name': '日志文件路径',
-	'settings.log-path.desc': '用于记录番茄钟会话的文件',
-	'settings.log-level.name': '日志级别',
-	'settings.log-level.all': '全部',
-	'settings.log-level.work': '工作',
-	'settings.log-level.break': '休息',
-	'settings.log-format.name': '日志格式',
-	'settings.log-format.simple': '简单',
-	'settings.log-format.verbose': '详细',
-	'settings.log-format.custom': '自定义',
-	'settings.log-template.name': '日志模板',
-	'settings.log-template.placeholder': '<% templater 脚本写在这里 %>',
-	'settings.templater.prefix': '需要启用 ',
-	'settings.templater.link': 'Templater',
-	'settings.templater.suffix': ' 插件，然后点击刷新按钮',
-	'settings.templater.refresh': '刷新',
-	'settings.restore-defaults': '恢复默认设置',
+	// 设置 — 每日目标
+	'settings.daily-goal.name': '每日番茄目标',
+	'settings.daily-goal.desc': '每天计划完成的工作会话数（0 = 关闭）',
+	'settings.week-start.name': '周起始日',
+	'settings.week-start.desc':
+		'选择每周从哪天开始。选择"跟随语言环境"则使用 moment.js 的语言默认值',
+	'settings.week-start.locale': '跟随语言环境（{day}）',
+	// 设置 — 番茄钟文件
+	'settings.files.name': '文件',
+	'settings.files.desc':
+		'参与番茄钟任务追踪的 md 文件。激活文件在面板下拉框中选择。',
+	'settings.files.add': '添加文件…',
+	'settings.files.remove': '移除',
 
 	// 命令名称
 	'command.generate-random-note': '生成随机名称笔记',
@@ -99,14 +85,42 @@ export const zhCN: Record<string, string> = {
 	'panel.pause': '暂停',
 	'panel.reset': '重置',
 	'panel.settings': '设置',
+	'panel.stats': '统计',
 	'panel.settings.sound': '通知音效',
-	'panel.settings.log-focused': '优先保存到任务文件',
+	'panel.today-progress': '今日 {count}/{goal}',
+	'panel.select-file': '选择文件…',
+	'panel.no-file': '未选择文件',
+	'panel.file-missing': '文件不存在',
+	'panel.no-tasks': '没有任务',
 	'panel.tasks-count': '{count} 个任务',
 	'panel.search': '搜索...',
 	'panel.filter.all': '全部',
 	'panel.filter.todo': '待办',
 	'panel.filter.completed': '已完成',
 	'panel.open-task': '打开',
+
+	// 统计面板
+	'stats.today': '本日',
+	'stats.week': '本周',
+	'stats.month': '本月',
+	'stats.total': '总计',
+	'stats.prev-week': '上一周',
+	'stats.next-week': '下一周',
+	'stats.year-today': '至今',
+	'stats.prev-year': '上一年',
+	'stats.next-year': '下一年',
+	'stats.less': '少',
+	'stats.more': '多',
+	'stats.weekday.0': '日',
+	'stats.weekday.1': '一',
+	'stats.weekday.2': '二',
+	'stats.weekday.3': '三',
+	'stats.weekday.4': '四',
+	'stats.weekday.5': '五',
+	'stats.weekday.6': '六',
+	'stats.day-total': '{count} 个番茄',
+	'stats.empty': '暂无记录',
+	'stats.no-task': '（无任务）',
 
 	// 状态栏菜单
 	'statusbar.start': '开始',
@@ -124,7 +138,6 @@ export const zhCN: Record<string, string> = {
 	'notice.pomodoro.title': '番茄钟',
 	'notice.pomodoro.work': '🍅 你已连续工作 {duration} 分钟。',
 	'notice.pomodoro.break': '🥤 你已休息 {duration} 分钟。',
-	'notice.invalid-template': '无效的模板',
 
 	// 错误
 	'error.create-failed': '创建随机笔记失败：{error}',

@@ -1,15 +1,13 @@
 import type MiyuPlugin from '../../../main';
 import { t } from '../../../i18n';
 import type { Unsubscriber } from '../../../core/store';
-import { pomodoroSettings } from '../settings-store';
+import { pomodoroSettings } from '../settings';
 
 /**
- * Quick settings shown inside the timer view (work/break lengths, autostart,
- * sound, log destination). Vanilla-TS port of the original
- * TimerSettingsComponent.svelte — everything lives in the unified settings
- * tab too; this panel is just for fast access.
+ * 面板内快速设置：工作时长 / 休息时长 / 自动开始 / 通知音效。
+ * 与统一设置页共享数据（plugin.settings.pomodoro），设置页改动自动反映。
  */
-export class TimerSettingsPanel {
+export class QuickSettingsPanel {
 	private plugin: MiyuPlugin;
 
 	private root: HTMLElement;
@@ -21,8 +19,6 @@ export class TimerSettingsPanel {
 	private autostartInput: HTMLInputElement;
 
 	private soundInput: HTMLInputElement;
-
-	private logFocusedInput: HTMLInputElement;
 
 	private unsubscribers: Unsubscriber[] = [];
 
@@ -38,7 +34,7 @@ export class TimerSettingsPanel {
 			t('mode.work', locale),
 			1,
 			(value) => {
-				plugin.settings.workLen = value;
+				plugin.settings.pomodoro.workMinutes = value;
 				void plugin.saveSettings();
 			},
 		);
@@ -48,7 +44,7 @@ export class TimerSettingsPanel {
 			t('mode.break', locale),
 			0,
 			(value) => {
-				plugin.settings.breakLen = value;
+				plugin.settings.pomodoro.breakMinutes = value;
 				void plugin.saveSettings();
 			},
 		);
@@ -56,9 +52,9 @@ export class TimerSettingsPanel {
 		this.autostartInput = this.addToggleRow(
 			list,
 			t('statusbar.autostart', locale),
-			() => plugin.settings.autostart,
+			() => plugin.settings.pomodoro.autoStartNext,
 			(value) => {
-				plugin.settings.autostart = value;
+				plugin.settings.pomodoro.autoStartNext = value;
 				void plugin.saveSettings();
 			},
 		);
@@ -66,27 +62,16 @@ export class TimerSettingsPanel {
 		this.soundInput = this.addToggleRow(
 			list,
 			t('panel.settings.sound', locale),
-			() => plugin.settings.notificationSound,
+			() => plugin.settings.pomodoro.notificationSound,
 			(value) => {
-				plugin.settings.notificationSound = value;
-				void plugin.saveSettings();
-			},
-		);
-
-		this.logFocusedInput = this.addToggleRow(
-			list,
-			t('panel.settings.log-focused', locale),
-			() => plugin.settings.logFocused,
-			(value) => {
-				plugin.settings.logFocused = value;
+				plugin.settings.pomodoro.notificationSound = value;
 				void plugin.saveSettings();
 			},
 		);
 
 		this.syncFromSettings();
 
-		// Reflect external settings changes (e.g. settings tab, restore
-		// defaults). Skip focused inputs so typing isn't clobbered.
+		// 外部设置变化（设置页/恢复默认）时同步；聚焦中的输入框不被覆盖
 		this.unsubscribers.push(
 			pomodoroSettings.subscribe(() => {
 				this.syncFromSettings();
@@ -95,16 +80,15 @@ export class TimerSettingsPanel {
 	}
 
 	private syncFromSettings() {
-		const s = this.plugin.settings;
+		const p = this.plugin.settings.pomodoro;
 		if (document.activeElement !== this.workInput) {
-			this.workInput.value = String(s.workLen);
+			this.workInput.value = String(p.workMinutes);
 		}
 		if (document.activeElement !== this.breakInput) {
-			this.breakInput.value = String(s.breakLen);
+			this.breakInput.value = String(p.breakMinutes);
 		}
-		this.autostartInput.checked = s.autostart;
-		this.soundInput.checked = s.notificationSound;
-		this.logFocusedInput.checked = s.logFocused;
+		this.autostartInput.checked = p.autoStartNext;
+		this.soundInput.checked = p.notificationSound;
 	}
 
 	private addNumberRow(
@@ -148,7 +132,7 @@ export class TimerSettingsPanel {
 		return input;
 	}
 
-	public destroy() {
+	destroy() {
 		for (const unsub of this.unsubscribers) {
 			unsub();
 		}

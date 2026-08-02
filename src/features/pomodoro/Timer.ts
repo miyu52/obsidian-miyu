@@ -1,158 +1,124 @@
-import { Notice, TFile } from 'obsidian';
+import { Notice } from 'obsidian';
 import type MiyuPlugin from '../../main';
 import { t, type Locale } from '../../i18n';
-import {
-	derived,
-	writable,
-	type Readable,
-	type Subscriber,
-	type Unsubscriber,
-	type Writable,
-} from '../../core/store';
-import Logger, { type LogContext } from './Logger';
-import type { TaskItem } from './Tasks';
-import DEFAULT_NOTIFICATION from './notification';
+import type { Readable, Subscriber, Unsubscriber } from '../../core/store';
+import type { Mode, PomodoroSession, TimerDisplay, TimerState } from './types';
+import type { TaskTracker } from './tasks/tracker';
+import type { SessionStore } from './stats';
+import { playNotificationSound } from './sound';
 
-export type Mode = 'WORK' | 'BREAK';
+const TICK_MS = 200;
+const TICK_MS_LOW_FPS = 1000;
 
-export type TimerRemained = {
-	millis: number;
-	human: string;
-};
+/** 时长格式化为 "mm : ss"。 */
+export function formatRemained(ms: number): string {
+	const totalSec = Math.max(0, Math.floor(ms / 1000));
+	const min = Math.floor(totalSec / 60);
+	const sec = totalSec % 60;
+	return `${min < 10 ? `0${min}` : min} : ${sec < 10 ? `0${sec}` : sec}`;
+}
 
-const DEFAULT_TASK: TaskItem = {
-	actual: 0,
-	expected: 0,
-	path: '',
-	fileName: '',
-	text: '',
-	name: '',
-	status: '',
-	blockLink: '',
-	checked: false,
-	done: '',
-	due: '',
-	created: '',
-	cancelled: '',
-	scheduled: '',
-	start: '',
-	description: '',
-	priority: '',
-	recurrence: '',
-	tags: [],
-	line: -1,
-};
+/** 模式文案。 */
+export function modeLabel(mode: Mode, locale: Locale): string {
+	return mode === 'WORK' ? t('mode.work', locale) : t('mode.break', locale);
+}
 
-export type TimerState = {
-	autostart: boolean;
-	running: boolean;
-	mode: Mode;
-	/** Elapsed before the current running stretch (epoch millis). */
-	accumulated: number;
-	/** Total elapsed display value (accumulated + current stretch). */
-	elapsed: number;
-	/** Start of the current running stretch (epoch millis), null when paused. */
-	startTime: number | null;
-	inSession: boolean;
-	workLen: number;
-	breakLen: number;
-	count: number;
-	duration: number;
-	/** Start of the current session (epoch millis), used for logging. */
-	sessionStart: number | null;
-};
-
-export type TimerStore = TimerState & {
-	remained: TimerRemained;
-	finished: boolean;
-};
+function makeSessionId(): string {
+	return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
 
 /**
- * Pomodoro timer with a reactive store.
- *
- * Timing is based on wall-clock timestamps (not tick counts), so the UI can
- * use a simple `setInterval` without drifting even if the tab is throttled.
+ * 计时核心：显式状态机（IDLE / RUNNING / PAUSED）+ 墙钟时间计算。
+ * 完成一个 WORK 会话 → 记录日志（SessionStore）+ 通知（Notice/系统通知/音效）。
+ * 中断（reset / 手动切段）的会话不记录。
  */
-export default class Timer implements Readable<TimerStore> {
+export class PomodoroTimer implements Readable<TimerDisplay> {
 	private plugin: MiyuPlugin;
 
-	private logger: Logger;
+	private tracker: TaskTracker;
+
+	private stats: SessionStore;
 
 	private state: TimerState;
 
-	private store: Writable<TimerState>;
-
-	private update: (fn: (value: TimerState) => TimerState) => void;
-
-	private timerStore: Readable<TimerStore>;
+	private subscribers = new Set<Subscriber<TimerDisplay>>();
 
 	private interval: number | null = null;
 
-	private unsubscribers: Unsubscriber[] = [];
-
-	public subscribe: (run: Subscriber<TimerStore>) => Unsubscriber;
-
-	constructor(plugin: MiyuPlugin) {
+	constructor(plugin: MiyuPlugin, tracker: TaskTracker, stats: SessionStore) {
 		this.plugin = plugin;
-		this.logger = new Logger(plugin);
-		const settings = plugin.settings;
+		this.tracker = tracker;
+		this.stats = stats;
+		const p = plugin.settings.pomodoro;
 		this.state = {
-			autostart: settings.autostart,
-			workLen: settings.workLen,
-			breakLen: settings.breakLen,
-			running: false,
+			phase: 'IDLE',
 			mode: 'WORK',
-			accumulated: 0,
-			elapsed: 0,
-			startTime: null,
-			inSession: false,
-			duration: settings.workLen,
-			count: settings.workLen * 60 * 1000,
-			sessionStart: null,
+			session: null,
+			accumulatedMs: 0,
+			runningSince: null,
+			autoStartNext: p.autoStartNext,
+			workMinutes: p.workMinutes,
+			breakMinutes: p.breakMinutes,
 		};
-
-		this.store = writable(this.state);
-		this.update = (fn) => this.store.update(fn);
-
-		this.timerStore = derived(this.store, ($state) => ({
-			...$state,
-			remained: this.remain($state.count, this.currentElapsed($state)),
-			finished:
-				$state.count > 0 &&
-				this.currentElapsed($state) >= $state.count,
-		}));
-
-		this.subscribe = (run) => this.timerStore.subscribe(run);
-		this.unsubscribers.push(
-			this.timerStore.subscribe((state) => {
-				this.state = state;
-			}),
-		);
 	}
 
-	/** Current total elapsed, including the ongoing running stretch. */
-	private currentElapsed(s: TimerState): number {
-		if (s.running && s.startTime !== null) {
-			return s.accumulated + (Date.now() - s.startTime);
-		}
-		return s.accumulated;
-	}
+	subscribe = (run: Subscriber<TimerDisplay>): Unsubscriber => {
+		this.subscribers.add(run);
+		run(this.display());
+		return () => {
+			this.subscribers.delete(run);
+		};
+	};
 
-	private remain(count: number, elapsed: number): TimerRemained {
-		let remained = Math.max(0, count - elapsed);
-		let min = Math.floor(remained / 60000);
-		let sec = Math.floor((remained % 60000) / 1000);
-		let minStr = min < 10 ? `0${min}` : min.toString();
-		let secStr = sec < 10 ? `0${sec}` : sec.toString();
+	/** 当前视图快照（墙钟时间计算）。 */
+	private display(): TimerDisplay {
+		const s = this.state;
+		const totalMs =
+			(s.session?.plannedMinutes ??
+				(s.mode === 'WORK' ? s.workMinutes : s.breakMinutes)) *
+			60000;
+		const elapsedMs =
+			s.runningSince !== null
+				? s.accumulatedMs + (Date.now() - s.runningSince)
+				: s.accumulatedMs;
+		const remainedMs = Math.max(0, totalMs - elapsedMs);
 		return {
-			millis: remained,
-			human: `${minStr} : ${secStr}`,
+			...s,
+			elapsedMs,
+			remainedMs,
+			remainedText: formatRemained(remainedMs),
+			progress: totalMs > 0 ? Math.min(1, elapsedMs / totalMs) : 0,
 		};
+	}
+
+	private emit() {
+		const view = this.display();
+		for (const run of this.subscribers) {
+			run(view);
+		}
+	}
+
+	/** 原地更新状态并广播。UI 订阅者抛错不影响计时器。 */
+	private update(fn: (s: TimerState) => TimerState): void {
+		let next = this.state;
+		try {
+			next = fn(this.state);
+		} catch (e) {
+			console.error('[miyu] timer state update failed:', e);
+		}
+		this.state = next;
+		try {
+			this.emit();
+		} catch (e) {
+			console.error('[miyu] timer UI update failed:', e);
+		}
 	}
 
 	private startClock() {
 		if (this.interval !== null) return;
-		const tickMs = this.plugin.settings.lowFps ? 1000 : 200;
+		const tickMs = this.plugin.settings.pomodoro.lowFps
+			? TICK_MS_LOW_FPS
+			: TICK_MS;
 		this.interval = window.setInterval(() => this.tick(), tickMs);
 	}
 
@@ -164,283 +130,227 @@ export default class Timer implements Readable<TimerStore> {
 	}
 
 	private tick() {
-		let timeup: boolean = false;
-		try {
-			this.update((s) => {
-				if (s.running) {
-					s.elapsed = Math.min(
-						s.count,
-						this.currentElapsed(s),
-					);
-					timeup = s.elapsed >= s.count;
-				}
-				return s;
-			});
-		} catch (e) {
-			// A UI subscriber throwing must never stall the timer.
-			console.error('[miyu] pomodoro tick failed:', e);
-		}
+		let timeup = false;
+		this.update((s) => {
+			if (s.phase === 'RUNNING' && s.runningSince !== null) {
+				const totalMs = (s.session?.plannedMinutes ?? 0) * 60000;
+				const elapsed =
+					s.accumulatedMs + (Date.now() - s.runningSince);
+				timeup = totalMs > 0 && elapsed >= totalMs;
+			}
+			return s;
+		});
 		if (timeup) {
 			this.timeup();
 		}
 	}
 
 	private timeup() {
-		let autostart = false;
-		try {
-			this.update((state) => {
-				const ctx = this.createLogContext(state);
-				void this.processLog(ctx);
-				autostart = state.autostart;
-				return this.endSession(state);
-			});
-		} catch (e) {
-			// endSession may have already run; autostart handled below.
-			console.error('[miyu] pomodoro session end failed:', e);
+		const session = this.state.session;
+		if (!session) {
+			return;
 		}
-		if (autostart) {
+		let autoStartNext = false;
+		try {
+			// 会话完成：记录日志（仅 WORK）+ 任务番茄数写回 + 通知（无条件执行）
+			session.actualMs = session.plannedMinutes * 60000;
+			if (session.mode === 'WORK') {
+				this.stats.record(session, this.tracker.task?.name ?? '');
+				void this.tracker.updateActual().catch((e) => {
+					console.error('[miyu] task actual update failed:', e);
+				});
+			}
+			this.notify(session);
+		} catch (e) {
+			console.error('[miyu] session end handling failed:', e);
+		}
+		this.update((s) => {
+			autoStartNext = s.autoStartNext;
+			s.phase = 'IDLE';
+			s.session = null;
+			s.accumulatedMs = 0;
+			s.runningSince = null;
+			s.mode =
+				s.breakMinutes === 0
+					? 'WORK'
+					: s.mode === 'WORK'
+						? 'BREAK'
+						: 'WORK';
+			return s;
+		});
+		this.stopClock();
+		if (autoStartNext) {
 			this.start();
 		}
 	}
 
-	private createLogContext(s: TimerState): LogContext {
-		let state = { ...s };
-		let task = this.plugin.pomodoro?.tracker.task
-			? { ...this.plugin.pomodoro.tracker.task }
-			: { ...DEFAULT_TASK };
-
-		if (!task.path) {
-			task.path = this.plugin.pomodoro?.tracker.file?.path ?? '';
-			task.fileName = this.plugin.pomodoro?.tracker.file?.name ?? '';
-		}
-
-		return { ...state, task };
-	}
-
-	private async processLog(ctx: LogContext) {
-		// Never let task tracking / logging errors swallow the session-end
-		// notification — the user must always get the Notice and sound.
-		let logFile: TFile | void;
-		try {
-			if (ctx.mode == 'WORK') {
-				await this.plugin.pomodoro?.tracker.updateActual();
-			}
-			logFile = await this.logger.log(ctx);
-		} catch (e) {
-			console.error('[miyu] pomodoro session logging failed:', e);
-			logFile = undefined;
-		}
-		this.notify(ctx, logFile);
-	}
-
-	public start() {
+	/** 开始新会话或恢复暂停的会话。 */
+	start() {
+		const now = Date.now();
 		this.update((s) => {
-			const now = Date.now();
-			if (!s.inSession) {
-				// new session
-				s.accumulated = 0;
-				s.elapsed = 0;
-				s.duration = s.mode === 'WORK' ? s.workLen : s.breakLen;
-				s.count = s.duration * 60 * 1000;
-				s.sessionStart = now;
+			if (s.phase === 'IDLE') {
+				s.session = {
+					id: makeSessionId(),
+					mode: s.mode,
+					startedAt: now,
+					plannedMinutes:
+						s.mode === 'WORK' ? s.workMinutes : s.breakMinutes,
+					actualMs: 0,
+				};
+				s.accumulatedMs = 0;
 			}
-			s.inSession = true;
-			s.startTime = now;
-			s.running = true;
+			s.phase = 'RUNNING';
+			s.runningSince = now;
 			return s;
 		});
 		this.startClock();
 	}
 
-	private endSession(state: TimerState) {
-		// setup new session
-		if (state.breakLen == 0) {
-			state.mode = 'WORK';
-		} else {
-			state.mode = state.mode == 'WORK' ? 'BREAK' : 'WORK';
-		}
-		state.duration = state.mode == 'WORK' ? state.workLen : state.breakLen;
-		state.count = state.duration * 60 * 1000;
-		state.inSession = false;
-		state.running = false;
-		state.startTime = null;
-		state.sessionStart = null;
-		state.accumulated = 0;
-		state.elapsed = 0;
+	pause() {
+		this.update((s) => {
+			if (s.runningSince !== null) {
+				const totalMs = (s.session?.plannedMinutes ?? 0) * 60000;
+				s.accumulatedMs = Math.min(
+					totalMs,
+					s.accumulatedMs + (Date.now() - s.runningSince),
+				);
+				s.runningSince = null;
+			}
+			s.phase = 'PAUSED';
+			return s;
+		});
 		this.stopClock();
-		return state;
 	}
 
-	private notify(state: TimerState, logFile: TFile | void) {
+	/** 重置当前会话（中断，不记录日志；保留选中的任务）。 */
+	reset() {
+		this.update((s) => {
+			s.phase = 'IDLE';
+			s.session = null;
+			s.accumulatedMs = 0;
+			s.runningSince = null;
+			return s;
+		});
+		this.stopClock();
+	}
+
+	/** 手动切换工作/休息（中断当前段，不记录日志）。 */
+	toggleMode(callback?: (mode: Mode) => void) {
+		this.update((s) => {
+			s.phase = 'IDLE';
+			s.session = null;
+			s.accumulatedMs = 0;
+			s.runningSince = null;
+			s.mode =
+				s.breakMinutes === 0
+					? 'WORK'
+					: s.mode === 'WORK'
+						? 'BREAK'
+						: 'WORK';
+			return s;
+		});
+		this.stopClock();
+		callback?.(this.state.mode);
+	}
+
+	toggleTimer() {
+		this.display().phase === 'RUNNING' ? this.pause() : this.start();
+	}
+
+	/** 设置变化后刷新时长/自动开始镜像。 */
+	setup() {
+		this.update((s) => {
+			const p = this.plugin.settings.pomodoro;
+			s.workMinutes = p.workMinutes;
+			s.breakMinutes = p.breakMinutes;
+			s.autoStartNext = p.autoStartNext;
+			return s;
+		});
+	}
+
+	/** 设置页"播放"按钮：试听当前通知音效。 */
+	toggleAudioPreview() {
+		try {
+			playNotificationSound(
+				this.plugin.app,
+				this.plugin.settings.pomodoro.soundFile,
+			);
+		} catch (e) {
+			console.error('[miyu] pomodoro sound preview failed:', e);
+		}
+	}
+
+	private notify(session: PomodoroSession) {
 		const locale = this.plugin.settings.language;
 		const text =
-			state.mode === 'WORK'
+			session.mode === 'WORK'
 				? t('notice.pomodoro.work', locale, {
-						duration: String(state.duration),
+						duration: String(session.plannedMinutes),
 					})
 				: t('notice.pomodoro.break', locale, {
-						duration: String(state.duration),
+						duration: String(session.plannedMinutes),
 					});
 
-		const openLog = () => {
-			if (logFile) {
-				void this.plugin.app.workspace
-					.getLeaf('split')
-					.openFile(logFile);
-			}
-		};
-
 		try {
-			if (this.plugin.settings.useSystemNotification) {
-				// HTML5 notification (works on desktop Electron & mobile).
-				// Shows automatically on construction. May be unavailable or
-				// permission-denied — fall back to the in-app Notice.
+			const p = this.plugin.settings.pomodoro;
+			if (p.systemNotification) {
+				// HTML5 通知（桌面 Electron / 移动端通用），构造即显示。
+				// 权限被拒或不可用时回退到应用内 Notice。
 				try {
 					const sysNotification = new window.Notification(
 						t('notice.pomodoro.title', locale),
 						{ body: text, silent: true },
 					);
 					sysNotification.onclick = () => {
-						openLog();
 						sysNotification.close();
+						this.openStatsPanel();
 					};
 				} catch {
 					new Notice(text);
 				}
 			} else {
-				let fragment = new DocumentFragment();
-				let span = fragment.createSpan();
+				const fragment = new DocumentFragment();
+				const span = fragment.createSpan();
 				span.setText(text);
-				fragment.addEventListener('click', openLog);
+				fragment.addEventListener('click', () => {
+					this.openStatsPanel();
+				});
 				new Notice(fragment);
 			}
 		} catch (e) {
-			// Last resort — never fail silently.
 			console.error('[miyu] pomodoro notification failed:', e);
 			new Notice(text);
 		}
 
-		if (this.plugin.settings.notificationSound) {
+		if (this.plugin.settings.pomodoro.notificationSound) {
 			try {
-				this.playAudio();
+				playNotificationSound(
+					this.plugin.app,
+					this.plugin.settings.pomodoro.soundFile,
+				);
 			} catch (e) {
 				console.error('[miyu] pomodoro sound failed:', e);
 			}
 		}
 	}
 
-	public pause() {
-		this.update((state) => {
-			if (state.startTime !== null) {
-				state.accumulated = Math.min(
-					state.count,
-					state.accumulated + (Date.now() - state.startTime),
-				);
-				state.startTime = null;
-			}
-			state.elapsed = state.accumulated;
-			state.running = false;
-			return state;
-		});
+	/** 通知点击 → 打开统计面板（由 TimerPanel 注入的入口）。 */
+	private openStatsPanel() {
+		this.plugin.pomodoro?.openStatsPanel?.();
+	}
+
+	destroy() {
 		this.stopClock();
-	}
-
-	public reset() {
-		this.update((state) => {
-			// sync elapsed before logging
-			if (state.startTime !== null) {
-				state.accumulated = Math.min(
-					state.count,
-					state.accumulated + (Date.now() - state.startTime),
-				);
-				state.startTime = null;
-				state.elapsed = state.accumulated;
-			}
-			if (state.elapsed > 0) {
-				void this.logger.log(this.createLogContext(state));
-			}
-
-			state.duration =
-				state.mode == 'WORK' ? state.workLen : state.breakLen;
-			state.count = state.duration * 60 * 1000;
-			state.inSession = false;
-			state.running = false;
-			state.sessionStart = null;
-			state.accumulated = 0;
-			state.elapsed = 0;
-			return state;
-		});
-		this.stopClock();
-		if (!this.plugin.pomodoro!.tracker.pinned) {
-			this.plugin.pomodoro!.tracker.clear();
-		}
-	}
-
-	public toggleMode(callback?: (state: TimerState) => void) {
-		this.update((s) => {
-			let updated = this.endSession(s);
-			if (callback) {
-				callback(updated);
-			}
-			return updated;
-		});
-	}
-
-	public toggleTimer() {
-		this.state.running ? this.pause() : this.start();
-	}
-
-	public playAudio() {
-		// Create a fresh element per play — an Audio element stuck in an
-		// error state never recovers, and the default data-URI decode is
-		// cheap enough for session-end sounds.
-		let audio: HTMLAudioElement;
-		const customSound = this.plugin.settings.customSound;
-		if (customSound) {
-			const soundFile =
-				this.plugin.app.vault.getAbstractFileByPath(customSound);
-			if (soundFile && soundFile instanceof TFile) {
-				audio = new Audio(
-					this.plugin.app.vault.getResourcePath(soundFile),
-				);
-			} else {
-				audio = new Audio(DEFAULT_NOTIFICATION);
-			}
-		} else {
-			audio = new Audio(DEFAULT_NOTIFICATION);
-		}
-		audio.currentTime = 0;
-		void audio.play().catch((e) => {
-			console.error('[miyu] notification sound playback failed:', e);
-		});
-	}
-
-	public setupTimer() {
-		this.update((state) => {
-			const { workLen, breakLen, autostart } = this.plugin.settings;
-			state.workLen = workLen;
-			state.breakLen = breakLen;
-			state.autostart = autostart;
-			if (!state.running && !state.inSession) {
-				state.duration =
-					state.mode == 'WORK' ? state.workLen : state.breakLen;
-				state.count = state.duration * 60 * 1000;
-			}
-
-			return state;
-		});
-	}
-
-	public destroy() {
-		this.pause();
-		this.stopClock();
-		for (let unsub of this.unsubscribers) {
-			unsub();
-		}
 	}
 }
 
-/** Translate a mode label for the current locale. */
-export function modeLabel(mode: Mode, locale: Locale): string {
-	return mode === 'WORK' ? t('mode.work', locale) : t('mode.break', locale);
+/** 进度环偏移：440 = 圆环周长。 */
+export function circleOffset(
+	display: TimerDisplay,
+	circumference = 440,
+): number {
+	const totalMs = display.remainedMs + display.elapsedMs;
+	return totalMs > 0
+		? (display.remainedMs / totalMs) * circumference
+		: circumference;
 }

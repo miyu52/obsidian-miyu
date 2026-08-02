@@ -367,3 +367,326 @@ If your plugin does not need CSS, delete this file.
 	border: none;
 	box-shadow: none;
 }
+
+/* File dropdown */
+.miyu-timer-view .pomodoro-tasks-file-select {
+	width: 100%;
+	flex: 1;
+	font-size: 0.85rem;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	text-overflow: ellipsis;
+	color: var(--text-normal);
+}
+
+.miyu-timer-view .pomodoro-tasks-header-title .pomodoro-tasks-file-select {
+	padding-right: 5px;
+}
+
+/* Grouped task tree */
+.miyu-timer-view .pomodoro-tasks-group-header {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding-top: 0.4rem;
+	padding-bottom: 0.4rem;
+	cursor: pointer;
+	border-top: 1px solid var(--background-modifier-border);
+	font-weight: bold;
+	font-size: 0.85rem;
+}
+
+.miyu-timer-view .pomodoro-tasks-group-header:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.miyu-timer-view .pomodoro-tasks-group-arrow {
+	display: inline-flex;
+	align-items: center;
+	transition: transform 0.15s ease;
+	flex-shrink: 0;
+}
+
+.miyu-timer-view .pomodoro-tasks-group-title {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.miyu-timer-view .pomodoro-tasks-group-count {
+	color: var(--text-faint);
+	font-size: 0.75rem;
+	padding-right: 0.25rem;
+}
+
+.miyu-timer-view .pomodoro-tasks-empty {
+	padding: 0.75rem 1rem;
+	color: var(--text-faint);
+	font-size: 0.8rem;
+	text-align: center;
+}
+
+/* Today progress */
+.miyu-timer-view .pomodoro-today {
+	margin-top: 0.5rem;
+	font-size: 0.8rem;
+	color: var(--text-muted);
+}
+
+/* Statistics panel */
+.miyu-timer-view .miyu-stats {
+	width: 100%;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+	padding: 0.75rem;
+}
+
+.miyu-timer-view .miyu-stats-title {
+	font-weight: bold;
+	font-size: 0.9rem;
+	margin-bottom: 0.5rem;
+}
+
+.miyu-timer-view .miyu-stats-body {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+/* 顶部四个数字卡片 */
+.miyu-timer-view .miyu-stats-summary {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.miyu-timer-view .miyu-stats-card {
+	flex: 1;
+	text-align: center;
+	padding: 0.5rem 0.25rem;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+}
+
+.miyu-timer-view .miyu-stats-card-label {
+	font-size: 0.7rem;
+	color: var(--text-muted);
+}
+
+.miyu-timer-view .miyu-stats-card-value {
+	font-size: 1.2rem;
+	font-weight: bold;
+}
+
+/* 分区 */
+.miyu-timer-view .miyu-stats-section {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+	padding: 0.5rem;
+}
+
+
+
+/* 单周天分布 */
+.miyu-timer-view .miyu-stats-week-header {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.75rem;
+	margin-bottom: 0.5rem;
+}
+
+.miyu-timer-view .miyu-stats-nav {
+	background: transparent;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 0.8rem;
+	padding: 2px 8px;
+	border-radius: 4px;
+}
+
+.miyu-timer-view .miyu-stats-nav:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.miyu-timer-view .miyu-stats-week-range {
+	font-size: 0.8rem;
+	color: var(--text-normal);
+}
+
+.miyu-timer-view .miyu-stats-week-grid {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 4px;
+}
+
+.miyu-timer-view .miyu-stats-week-grid > * {
+	min-width: 0;
+}
+
+.miyu-timer-view .miyu-stats-week-cell {
+	height: 48px;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	padding: 2px;
+	border-radius: 3px;
+	cursor: pointer;
+	background-color: var(--background-modifier-hover);
+}
+
+.miyu-timer-view .miyu-stats-week-cell.is-selected {
+	outline: 1px solid var(--interactive-accent);
+}
+
+.miyu-timer-view .miyu-stats-week-bar-fill {
+	width: 60%;
+	min-height: 2px;
+	background-color: var(--interactive-accent);
+	border-radius: 1px;
+}
+
+.miyu-timer-view .miyu-stats-week-label {
+	font-size: 0.7rem;
+	color: var(--text-faint);
+	text-align: center;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* GitHub 风格活跃图：列宽自适应，格子等比缩放，窄窗口不溢出 */
+.miyu-timer-view .miyu-heat-grid {
+	display: grid;
+	grid-template-columns: repeat(52, 1fr);
+	gap: 2px;
+}
+
+.miyu-timer-view .miyu-heat-col {
+	display: grid;
+	grid-template-rows: repeat(7, 1fr);
+	gap: 2px;
+	min-width: 0;
+}
+
+.miyu-timer-view .miyu-heat-cell {
+	aspect-ratio: 1;
+	min-width: 0;
+	min-height: 0;
+	border-radius: 2px;
+	cursor: pointer;
+}
+
+.miyu-timer-view .miyu-heat-cell.level-0 {
+	background-color: var(--background-modifier-hover);
+}
+
+.miyu-timer-view .miyu-heat-cell.level-1 {
+	background-color: rgba(var(--color-green-rgb), 0.25);
+}
+
+.miyu-timer-view .miyu-heat-cell.level-2 {
+	background-color: rgba(var(--color-green-rgb), 0.45);
+}
+
+.miyu-timer-view .miyu-heat-cell.level-3 {
+	background-color: rgba(var(--color-green-rgb), 0.65);
+}
+
+.miyu-timer-view .miyu-heat-cell.level-4 {
+	background-color: rgba(var(--color-green-rgb), 0.9);
+}
+
+.miyu-timer-view .miyu-heat-cell.is-selected {
+	outline: 1px solid var(--interactive-accent);
+}
+
+.miyu-timer-view .miyu-heat-legend {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	margin-top: 0.4rem;
+	justify-content: flex-end;
+}
+
+.miyu-timer-view .miyu-heat-legend .miyu-heat-cell {
+	width: 10px;
+	height: 10px;
+	aspect-ratio: auto;
+}
+
+.miyu-timer-view .miyu-heat-legend-text {
+	font-size: 0.65rem;
+	color: var(--text-faint);
+}
+
+/* 明细 */
+.miyu-timer-view .miyu-stats-detail {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+	padding: 0.5rem;
+}
+
+.miyu-timer-view .miyu-stats-detail-header {
+	font-size: 0.8rem;
+	font-weight: bold;
+	margin-bottom: 0.35rem;
+}
+
+.miyu-timer-view .miyu-stats-detail-empty {
+	font-size: 0.8rem;
+	color: var(--text-faint);
+}
+
+.miyu-timer-view .miyu-stats-task {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.8rem;
+	padding: 0.2rem 0;
+}
+
+.miyu-timer-view .miyu-stats-task-name {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.miyu-timer-view .miyu-stats-task-count {
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+.miyu-timer-view .miyu-stats-task-bar {
+	flex: 1;
+	max-width: 120px;
+	height: 6px;
+	background-color: var(--background-modifier-border);
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.miyu-timer-view .miyu-stats-task-bar-fill {
+	height: 100%;
+	background-color: var(--interactive-accent);
+}
+
+.miyu-timer-view .miyu-stats-year-label {
+	font-size: 0.8rem;
+	color: var(--text-normal);
+	min-width: 2.5em;
+	text-align: center;
+}
+
+	padding: 0;
+}
+
+/* 活动任务名称：只读，视觉上像普通文本 */
+.miyu-timer-view .pomodoro-tasks-active input[readonly] {
+	cursor: default;
+	opacity: 1;
+}

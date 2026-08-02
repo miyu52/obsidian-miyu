@@ -1,4 +1,4 @@
-import type { MiyuSettings } from './settings';
+import type { RandomFileSettings } from './settings';
 import { t, type Locale } from './i18n';
 
 export interface RandomStringOptions {
@@ -14,14 +14,16 @@ const LOWERCASE = 'abcdefghijklmnopqrstuvwxyz';
 const NUMBERS = '0123456789';
 const SYMBOLS = '!@#$%^&()-_[]{}+=';
 
-/** Extract random string options from plugin settings. */
-export function getRandomOptions(settings: MiyuSettings): RandomStringOptions {
+/** Extract random string options from the random-file settings. */
+export function getRandomOptions(
+	settings: RandomFileSettings,
+): RandomStringOptions {
 	return {
-		length: settings.randomLength,
-		useUppercase: settings.randomUppercase,
-		useLowercase: settings.randomLowercase,
-		useNumbers: settings.randomNumbers,
-		useSymbols: settings.randomSymbols,
+		length: settings.length,
+		useUppercase: settings.uppercase,
+		useLowercase: settings.lowercase,
+		useNumbers: settings.numbers,
+		useSymbols: settings.symbols,
 	};
 }
 

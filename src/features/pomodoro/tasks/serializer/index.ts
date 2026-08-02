@@ -1,4 +1,4 @@
-import type { TaskFormat } from '../../../settings';
+import type { TaskFormat } from '../../types';
 import type { Moment } from 'moment';
 import { DataviewTaskSerializer } from './DataviewTaskSerializer';
 import {

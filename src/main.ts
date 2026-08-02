@@ -2,7 +2,7 @@ import { Plugin } from 'obsidian';
 import {
 	MiyuSettings,
 	MiyuSettingTab,
-	DEFAULT_SETTINGS,
+	normalizeSettings,
 } from './settings';
 import { registerRandomFileFeature } from './features/random-file';
 import {
@@ -26,10 +26,8 @@ export default class MiyuPlugin extends Plugin {
 	private _featureCommandIds: string[] = [];
 
 	async onload() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<MiyuSettings>,
+		this.settings = normalizeSettings(
+			(await this.loadData()) as Partial<MiyuSettings> | null,
 		);
 
 		this.settingTab = new MiyuSettingTab(this.app, this);

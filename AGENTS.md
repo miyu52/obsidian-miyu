@@ -33,21 +33,24 @@ src/
 └── features/
     ├── random-file.ts       # Feature: generate note with random name
     └── pomodoro/            # Feature: pomodoro timer (multi-file, see below)
-        ├── index.ts         # registerPomodoroFeature() + PomodoroManager
-        ├── settings-store.ts# Reactive mirror of plugin.settings for UI
-        ├── Timer.ts         # Timer state machine + reactive store
-        ├── Tasks.ts         # Task parsing from the active file
-        ├── TaskTracker.ts   # Active task tracking + pomodoro counters
-        ├── Logger.ts        # Session logging (daily/weekly/file/templater)
-        ├── TimerView.ts     # ItemView (VIEW_TYPE_TIMER = 'miyu-timer-view')
-        ├── StatusBarTimer.ts# Status bar item with context menu
-        ├── daily-notes.ts   # Minimal shim for obsidian-daily-notes-interface
-        ├── task-utils.ts    # Task-line parsing helpers, templater glue
-        ├── notification.ts  # Default notification sound (base64 data URI)
-        ├── serializer/      # Task line deserializers (TASKS / DATAVIEW formats)
+        ├── index.ts         # registerPomodoroFeature() + PomodoroManager assembly
+        ├── types.ts         # ALL shared data models (single source of truth)
+        ├── settings.ts      # PomodoroSettings + defaults + reactive mirror
+        ├── timer.ts         # PomodoroTimer state machine (IDLE/RUNNING/PAUSED)
+        ├── sound.ts         # Notification sound (base64 data URI + player)
+        ├── stats.ts         # SessionStore: PomodoroRecord logging + statistics
+        ├── tasks/
+        │   ├── parser.ts    # TaskParser: grouped tree parsing (headings + nesting)
+        │   ├── tracker.ts   # TaskTracker: active task + pomodoro counter writeback
+        │   ├── line-utils.ts# Task-line parsing helpers
+        │   └── serializer/  # Task line deserializers (TASKS / DATAVIEW formats)
+        ├── view.ts          # TimerView (VIEW_TYPE_TIMER = 'miyu-timer-view')
         └── ui/
-            ├── TimerPanel.ts# Timer circle + controls (in the view)
-            └── TasksPanel.ts# Task list, filters, search, progress
+            ├── TimerPanel.ts         # Timer circle + today progress + 5 buttons
+            ├── TasksPanel.ts         # File dropdown + grouped tree + collapse
+            ├── StatsPanel.ts         # Daily bar chart + task breakdown (new)
+            ├── QuickSettingsPanel.ts # Quick settings inside the view
+            └── StatusBarTimer.ts     # Status bar item with context menu
 ```
 
 This is a **multi-feature personal toolkit plugin**. Every feature is a self-contained
@@ -121,55 +124,56 @@ Follow the pomodoro feature as the reference structure.
   - All charsets disabled → shows localized error notice
 - **Source:** `src/features/random-file.ts`, `src/utils.ts`
 
-### 2. Pomodoro timer (v1.2.3, migrated from obsidian-pomodoro-timer)
+### 2. Pomodoro timer (refactored)
 
 - **Commands:** ids `toggle-timer`, `toggle-timer-panel`, `reset-timer`, `toggle-mode`
 - **View:** `miyu-timer-view` in the right sidebar (unique ID so it coexists
   with the old plugin's `timer-view`; reopen the panel once after migrating)
 - **Ribbon:** timer icon toggles the panel; **status bar:** optional timer with context menu
 - **Features:** work/break cycles with autostart, task tracking (TASKS / DATAVIEW formats,
-  block IDs, pomodoro counters), session logging (daily/weekly note, file, templater),
-  notifications (system + sound + custom audio), low-FPS mode
-- **Settings:** all in the unified `MiyuSettingTab` (Timer / Notification / Task / Log sections).
-  There is NO settings view inside the panel anymore.
-- **Settings keys are intentionally UNPREFIXED** (`workLen`, `breakLen`, ...) so they match
-  the old `obsidian-pomodoro-timer` data file. A one-time migration reads
-  `.obsidian/plugins/obsidian-pomodoro-timer/data.json` on first load — but only while
-  every pomodoro setting is still at its default, so it never overwrites user changes.
+  block IDs, pomodoro counters), heading-grouped task tree (nested, collapsible,
+  persisted), session logging to `data.json`, daily bar-chart statistics with
+  task breakdown, daily goal, notifications (system + sound + custom audio),
+  low-FPS mode
+- **Settings:** all in the unified `MiyuSettingTab`
+  (Timer / Notification / Task / Daily goal / Files sections) +
+  in-panel quick settings (gear button).
+- **Data model:** all shared types live in `src/features/pomodoro/types.ts`.
+  Settings are nested: `MiyuSettings.randomFile` / `MiyuSettings.pomodoro`
+  (see Settings reference below).
 - **Source:** `src/features/pomodoro/` (see architecture above)
 
 ## Settings reference
 
-All settings keys live in `MiyuSettings` (see `src/settings.ts`).
-Prefix new feature settings with the feature name to avoid conflicts
-(e.g., `randomLength`, `templatePath`, etc.) — EXCEPT the pomodoro feature,
-which deliberately keeps its original unprefixed key names for data migration.
+All settings live in `MiyuSettings` (see `src/settings.ts`). Feature settings
+are **namespaced under their feature** (`randomFile`, `pomodoro`) — new
+features must follow the same pattern.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `language` | `Locale` | `'zh-CN'` | UI language |
-| `randomLength` | `number` | `8` | Random string length |
-| `randomUppercase` | `boolean` | `true` | Include uppercase |
-| `randomLowercase` | `boolean` | `false` | Include lowercase |
-| `randomNumbers` | `boolean` | `true` | Include numbers |
-| `randomSymbols` | `boolean` | `false` | Include symbols |
-| `workLen` | `number` | `25` | Work session minutes |
-| `breakLen` | `number` | `5` | Break minutes (0 = no breaks) |
-| `autostart` | `boolean` | `false` | Auto-start next session |
-| `useStatusBarTimer` | `boolean` | `false` | Show timer in status bar |
-| `lowFps` | `boolean` | `false` | Lower clock/UI update rate |
-| `useSystemNotification` | `boolean` | `false` | OS-level notification |
-| `notificationSound` | `boolean` | `true` | Play sound on session end |
-| `customSound` | `string` | `''` | Vault path to custom sound |
-| `enableTaskTracking` | `boolean` | `false` | Track pomodoros per task |
-| `showTaskProgress` | `boolean` | `true` | Progress bar behind tasks |
-| `taskFormat` | `TaskFormat` | `'TASKS'` | `'TASKS'` / `'DATAVIEW'` |
-| `logFile` | `LogFileType` | `'NONE'` | `'NONE'`/`'DAILY'`/`'WEEKLY'`/`'FILE'` |
-| `logFocused` | `boolean` | `false` | Prefer logging to task's file |
-| `logPath` | `string` | `''` | Target file for `logFile='FILE'` |
-| `logLevel` | `LogLevel` | `'ALL'` | `'ALL'`/`'WORK'`/`'BREAK'` |
-| `logTemplate` | `string` | `''` | Templater script for CUSTOM format |
-| `logFormat` | `LogFormat` | `'VERBOSE'` | `'SIMPLE'`/`'VERBOSE'`/`'CUSTOM'` |
+| `randomFile.length` | `number` | `8` | Random string length |
+| `randomFile.uppercase` | `boolean` | `true` | Include uppercase |
+| `randomFile.lowercase` | `boolean` | `false` | Include lowercase |
+| `randomFile.numbers` | `boolean` | `true` | Include numbers |
+| `randomFile.symbols` | `boolean` | `false` | Include symbols |
+| `pomodoro.workMinutes` | `number` | `25` | Work session minutes |
+| `pomodoro.breakMinutes` | `number` | `5` | Break minutes (0 = no breaks) |
+| `pomodoro.autoStartNext` | `boolean` | `false` | Auto-start next session |
+| `pomodoro.showStatusBarTimer` | `boolean` | `false` | Show timer in status bar |
+| `pomodoro.lowFps` | `boolean` | `false` | Lower clock/UI update rate |
+| `pomodoro.systemNotification` | `boolean` | `false` | OS-level notification |
+| `pomodoro.notificationSound` | `boolean` | `true` | Play sound on session end |
+| `pomodoro.soundFile` | `string` | `''` | Vault path to custom sound |
+| `pomodoro.taskTracking` | `boolean` | `false` | Track pomodoros per task |
+| `pomodoro.showTaskProgress` | `boolean` | `true` | Progress bar behind tasks |
+| `pomodoro.taskFormat` | `TaskFormat` | `'TASKS'` | `'TASKS'` / `'DATAVIEW'` |
+| `pomodoro.dailyGoal` | `number` | `0` | Daily goal (0 = disabled) |
+| `pomodoro.weekStart` | `number \| null` | `0` | Week start day (0=Sun..6=Sat, null=locale) |
+| `pomodoro.files` | `string[]` | `[]` | md files tracked by the panel |
+| `pomodoro.activeFile` | `string` | `''` | Active file (panel dropdown) |
+| `pomodoro.collapsedSections` | `string[]` | `[]` | Collapsed heading ids |
+| `pomodoro.records` | `PomodoroRecord[]` | `[]` | Session log (data.json) |
 
 ## Build & dev
 
@@ -216,21 +220,21 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
 - **Migrated wholesale** from `external/obsidian-pomodoro-timer` (v1.2.3) into
   `src/features/pomodoro/` with all features intact. The original source remains
   in `external/` as reference (git submodule-style copy) — do NOT edit it.
-- **No Svelte, no web worker, no runtime deps.** The 5 Svelte components were
-  rewritten as vanilla TS DOM classes (`ui/`, `StatusBarTimer.ts`), the web-worker
-  clock was replaced with `setInterval` + wall-clock timestamps (`Timer.ts` — drift
-  is impossible since elapsed is computed from `Date.now()`, not tick counts), and
-  the `obsidian-daily-notes-interface` dependency was replaced by a small internal
-  shim (`daily-notes.ts`) talking to Obsidian's internal `daily-notes` plugin.
-  `esbuild.config.mjs` needed ZERO changes.
+  `external/obsidian-calendar-plugin` is also kept as a reference for UI
+  patterns (e.g. the official-style number input in settings).
+- **No Svelte, no web worker, no runtime deps.** UI is vanilla TS/DOM, the clock
+  is `setInterval` + wall-clock timestamps (drift is impossible since elapsed is
+  computed from `Date.now()`, not tick counts). `esbuild.config.mjs` needs ZERO
+  changes.
 - **Reactive state** uses the minimal `src/core/store.ts` (`writable`/`derived`),
   modeled on svelte/store semantics: subscribers are called synchronously on
-  subscribe and on every `set`/`update`.
-- **Settings reactivity:** `main.ts` gained a single generic hook
+  subscribe and on every `set`/`update`. The pomodoro timer uses a plain
+  subscriber set instead (see `timer.ts`).
+- **Settings reactivity:** `main.ts` has a single generic hook
   `plugin.onSettingsChanged` invoked after every `saveSettings()`. The pomodoro
   feature assigns it in `index.ts` to refresh the `pomodoroSettings` reactive
-  mirror (`settings-store.ts`) and call `timer.setupTimer()`. UI components
-  subscribe to the mirror (status bar visibility, task progress).
+  mirror (`settings.ts`) and call `timer.setup()`. UI components subscribe to
+  the mirror.
 - **User-facing stability** (seamless migration):
   - Command IDs unchanged: `toggle-timer`, `toggle-timer-panel`, `reset-timer`, `toggle-mode`
   - View type is `miyu-timer-view` — deliberately NOT the old plugin's
@@ -238,20 +242,11 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
     shared ID would crash the old plugin's load while both are enabled.
     Saved workspaces using the old type need the panel reopened once after
     the old plugin is removed.
-  - Settings keys unchanged (unprefixed) so the old data file can be migrated
-  - One-time migration from `.obsidian/plugins/obsidian-pomodoro-timer/data.json`
-    — skipped as soon as any pomodoro setting is non-default
   - Hotkeys bound to the OLD plugin's command ids (`obsidian-pomodoro-timer:*`)
     are NOT migrated — Obsidian keys them by plugin id; users must re-bind.
 - **`electron.remote.Notification` is dead** (removed in modern Electron) — replaced
   with HTML5 `window.Notification` (try/catch → Notice fallback). Do NOT reintroduce
   `require('electron').remote`.
-- **Settings UI:** full settings live in the unified `MiyuSettingTab`
-  (Timer / Notification / Task / Log headings). The panel keeps its original
-  quick-settings button (4th control, gear icon): Work/Break lengths,
-  Auto-start, Notification Sound, Prefer Saving to Task File
-  (`ui/TimerSettingsPanel.ts`) — it writes to `plugin.settings` directly and
-  refreshes from the `pomodoroSettings` mirror.
 - **Known limitation:** on language switch, the already-open timer panel keeps its
   construction-time labels until the view is reopened (commands and status bar do
   update live). Acceptable for now.
@@ -265,13 +260,74 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
   renamed so both plugins can stay enabled side by side. Keep this convention:
   any new class a feature adds must NOT reuse bare names the old
   obsidian-pomodoro-timer plugin might also declare.
-- **Session-end notification must never be swallowed:** `Timer.timeup()`
-  runs `processLog()` which is fully wrapped — logging/task-tracking errors
-  only log to console, then `notify()` ALWAYS runs (in-app Notice + sound).
-  `tick()`/`timeup()` also guard their store updates so a throwing UI
-  subscriber can't stall the timer. When touching this path, keep that
-  guarantee.
-- **Obsidian internal daily-notes plugin API:** instance methods are
-  `getDailyNote` / `getAllDailyNotes` / `createDailyNote` (weekly: `getWeeklyNote`
-  / ...). Getting these names wrong throws at session end and silently kills
-  the notification — see `daily-notes.ts`.
+- **Session-end notification must never be swallowed:** `PomodoroTimer.timeup()`
+  records the session + notifies inside a fully wrapped block — logging/task
+  errors only log to console, then the Notice + sound ALWAYS run. Store updates
+  are also guarded so a throwing UI subscriber can't stall the timer. When
+  touching this path, keep that guarantee.
+- **Settings model is nested** (`randomFile.*`, `pomodoro.*`) — no data
+  migration exists; old flat keys from v1.0 are simply ignored.
+
+### 2026-08-02 — Pomodoro v2 refactor (data model + features)
+
+- **Data model redesign:** `TimerState` (running/inSession/elapsed/count/
+  duration/startTime/sessionStart mess) → explicit `TimerPhase`
+  ('IDLE'|'RUNNING'|'PAUSED') + `PomodoroSession` (first-class session object) +
+  derived `TimerDisplay`. All shared types live in `types.ts` — modules import
+  types from there, no cross-module type imports.
+- **Naming with units in names:** `accumulatedMs`, `runningSince`,
+  `workMinutes`, `expectedPomodoros`, `actualPomodoros`, `completedAt` — a field
+  name must be self-explanatory without comments.
+- **Old file-log feature removed** (daily/weekly note, templater, 6 log
+  settings). Sessions are logged as `PomodoroRecord` into
+  `settings.pomodoro.records` (data.json) — only **completed** WORK sessions
+  (aborted/break never recorded), `task` is a name snapshot at completion time,
+  records pruned past 10000 entries. `SessionStore` (stats.ts) computes
+  today-count / countByDay / tasksByDay on the fly.
+- **Active file is explicit + persisted:** `pomodoro.files` (multi-file list via
+  settings SuggestModal) + `pomodoro.activeFile` (panel dropdown). The old
+  "follow active note + pin" behavior is gone (`TaskTrackerState` is just
+  `{ task? }`). TaskTracker identifies tasks by `blockLink` only.
+- **Grouped task tree:** `TaskParser` (tasks/parser.ts) rebuilds the whole tree
+  on every file change — headings from `metadataCache.headings`, tasks attach to
+  the nearest preceding heading, nested by level; ungrouped tasks go to
+  `topTasks` (rendered first). Collapse state persists in
+  `pomodoro.collapsedSections` keyed by `${path}:${headingLine}`; stale ids are
+  harmlessly ignored. Manual md edits are fully supported because parsing is
+  stateless full-rebuild; missing blockLink auto-clears the active task.
+- **Stats panel (5th button):** top row = 本日/本周/本月/总计 four number cards;
+  middle = single-week 7-day bar distribution with prev/next week navigation
+  (week start follows `pomodoro.weekStart`, default Sunday, "locale default"
+  option mirrors the calendar plugin's Start week on setting); bottom =
+  GitHub-style 52-week activity heatmap with a year selector ("至今" = ends at
+  the current week, a specific year = ends at that year's last week); clicking
+  any day shows that day's task breakdown. Notification click opens the stats
+  panel (via `PomodoroManager.openStatsPanel`, injected by TimerPanel).
+- **Panel layout:** 5 controls — tasks | play/pause | reset | quick settings |
+  stats; three extra panels (tasks/settings/stats) toggle exclusively.
+- **`Timer.ts`→`timer.ts` case-collision gotcha (Windows):** the old migration
+  files used PascalCase names; deleting `Timer.ts` on a case-insensitive
+  filesystem also deletes `timer.ts`. When deleting old files, use exact names
+  and verify with `ls` afterwards.
+- **Settings UI conventions:** number inputs use the official style — `addText`
+  + `inputEl.type='number'` via the `addNumberInput` helper, uniform width via
+  `.miyu-setting-input` (`var(--input-width, 140px)`), input-save + out-of-range
+  revert. Pomodoro settings are ONE flat section (no sub-headings) and there is
+  NO "restore defaults" button.
+- **moment global locale is mutable:** Obsidian's `window.moment` locale can be
+  changed externally, so `moment.weekdaysShort()` etc. can flip language at
+  runtime. Weekday labels must come from the plugin i18n (`stats.weekday.N`)
+  and day names never from moment.
+- **Task tracking behaviors:** `timeup()` must call `tracker.updateActual()` for
+  completed WORK sessions (writes `🍅::` counts back to the file) — it was
+  accidentally dropped once in a refactor. `reset()` only resets the timer and
+  must NOT clear the active task; the active-task name input is readonly.
+- **Startup vault-readiness gotcha:** `vault.getAbstractFileByPath()` may return
+  null during plugin `onload` (early startup), which made the task panel show
+  "file not found" until a manual reselect. `TaskParser` now re-loads on
+  `workspace.onLayoutReady()` AND retries a few times (500ms apart) when the
+  active file is missing — don't remove that retry, it's the startup fix.
+- **Settings merge must be deep:** `Object.assign` is shallow — nested feature
+  objects in an old `data.json` miss keys added later (e.g. `weekStart`),
+  leaving them `undefined` and silently falling back to locale defaults.
+  Always use `normalizeSettings()` (settings.ts) when loading data.

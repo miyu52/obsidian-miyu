@@ -23,7 +23,7 @@ export function registerRandomFileFeature(plugin: MiyuPlugin): string[] {
 
 async function createRandomNote(plugin: MiyuPlugin) {
 	const locale = plugin.settings.language;
-	const opts = getRandomOptions(plugin.settings);
+	const opts = getRandomOptions(plugin.settings.randomFile);
 
 	for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
 		try {

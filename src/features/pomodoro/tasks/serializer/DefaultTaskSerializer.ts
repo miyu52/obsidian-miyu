@@ -1,6 +1,6 @@
 import { moment } from 'obsidian';
 import type { Moment } from 'moment';
-import { extractHashtags, toInlineFieldRegex } from '../task-utils';
+import { extractHashtags, toInlineFieldRegex } from '../line-utils';
 import type { TaskDetails, TaskDeserializer } from '.';
 import { Priority, TaskRegularExpressions } from './TaskModels';
 
