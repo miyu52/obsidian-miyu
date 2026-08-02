@@ -104,6 +104,36 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 		await this.incrTaskActual(this.task.blockLink, file);
 	}
 
+	/** 切换任务的完成状态并写回文件（`- [ ]` ↔ `- [x]`）。 */
+	async toggleComplete(task: TaskItem, completed: boolean) {
+		const file = this.plugin.app.vault.getAbstractFileByPath(task.path);
+		if (!(file instanceof TFile) || file.extension !== 'md') {
+			return;
+		}
+		const content = await this.plugin.app.vault.read(file);
+		const lines = content.split('\n');
+		const line = lines[task.line];
+		if (line === undefined) {
+			return;
+		}
+		const updated = line.replace(
+			/\[[ xX]\]/,
+			completed ? '[x]' : '[ ]',
+		);
+		if (updated === line) {
+			return;
+		}
+		lines[task.line] = updated;
+		const metadata = this.plugin.app.metadataCache.getFileCache(file);
+		await this.plugin.app.vault.modify(file, lines.join('\n'));
+		this.plugin.app.metadataCache.trigger(
+			'changed',
+			file,
+			content,
+			metadata,
+		);
+	}
+
 	/** 重新解析后同步活动任务（名称不可编辑，整体替换）。 */
 	sync(task: TaskItem) {
 		if (

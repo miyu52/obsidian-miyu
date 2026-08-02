@@ -14,10 +14,6 @@ const ICON_TASK = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16
 
 const ICON_FILE = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>`;
 
-const ICON_UNCHECKED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg>`;
-
-const ICON_CHECKED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-square"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`;
-
 const ICON_REMOVE = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
 
 const ICON_SEARCH = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`;
@@ -332,6 +328,9 @@ export class TasksPanel {
 		remove.addEventListener('click', () => {
 			this.tracker.clear();
 		});
+		row.addEventListener('contextmenu', (e) => {
+			this.showItemMenu(e, task);
+		});
 	}
 
 	// ---------- 分组树 ----------
@@ -496,11 +495,9 @@ export class TasksPanel {
 		if (this.plugin.settings.pomodoro.showTaskProgress && pomos) {
 			el.createSpan({
 				cls: 'miyu-task-pomos',
-				text: `🍅 ${pomos}`,
+				text: pomos,
 			});
 		}
-		const check = el.createSpan({ cls: 'miyu-task-check' });
-		check.innerHTML = item.checked ? ICON_CHECKED : ICON_UNCHECKED;
 	}
 
 	private progress(item: TaskItem): number {
@@ -547,6 +544,20 @@ export class TasksPanel {
 			item.setTitle(t('panel.open-task', locale)).onClick(() => {
 				this.tracker.openTask(e, task);
 			});
+		});
+		menu.addItem((item) => {
+			item
+				.setTitle(
+					t(
+						task.checked
+							? 'panel.uncomplete-task'
+							: 'panel.complete-task',
+						locale,
+					),
+				)
+				.onClick(() => {
+					void this.tracker.toggleComplete(task, !task.checked);
+				});
 		});
 		menu.showAtMouseEvent(e);
 	}

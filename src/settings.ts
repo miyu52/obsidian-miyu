@@ -111,8 +111,8 @@ export class MiyuSettingTab extends PluginSettingTab {
 			.setDesc(s(plugin, 'settings.language.desc'))
 			.addDropdown((dropdown) =>
 				dropdown
-					.addOption('en', 'English')
 					.addOption('zh-CN', '简体中文')
+					.addOption('en', 'English')
 					.setValue(plugin.settings.language)
 					.onChange(async (value) => {
 						plugin.settings.language = value as Locale;

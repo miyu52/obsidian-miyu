@@ -163,8 +163,9 @@ export class TaskParser implements Readable<TaskStore> {
 				void this.tracker.active(found);
 				return;
 			}
-			// 任务不存在：属于当前文件 → 清除；属于其他文件 → 保留（切回时再恢复）
-			if (persisted.path === tree.filePath) {
+			// 任务不存在：仅当文件确认存在（exists）且属于当前文件时才清除；
+			// 缺失文件可能是启动时序（vault 未就绪），此时保留等待重试后恢复
+			if (tree.exists && persisted.path === tree.filePath) {
 				this.plugin.settings.pomodoro.activeTask = null;
 				void this.plugin.saveSettings();
 			}

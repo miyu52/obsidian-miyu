@@ -386,8 +386,9 @@ If your plugin does not need CSS, delete this file.
 	background-color: var(--background-modifier-hover);
 }
 
-.miyu-timer-view .miyu-task-row.is-active {
-	background-color: rgba(var(--color-accent-rgb), 0.15);
+/* 活动行：平时与普通任务一致；hover 时显示蓝色（亮度与普通 hover 相同） */
+.miyu-timer-view .miyu-task-row.is-active:hover {
+	background-color: rgba(var(--color-accent-rgb, 0, 102, 204), 0.08);
 }
 
 .miyu-timer-view .miyu-task-icon {
@@ -395,18 +396,6 @@ If your plugin does not need CSS, delete this file.
 	align-items: center;
 	flex-shrink: 0;
 	color: var(--text-faint);
-}
-
-/* 右侧完成状态复选框 */
-.miyu-timer-view .miyu-task-check {
-	display: inline-flex;
-	align-items: center;
-	flex-shrink: 0;
-	color: var(--text-faint);
-}
-
-.miyu-timer-view .miyu-task-row.is-checked .miyu-task-check {
-	color: var(--color-green);
 }
 
 .miyu-timer-view .miyu-task-row.is-checked .miyu-task-desc {
@@ -435,6 +424,7 @@ If your plugin does not need CSS, delete this file.
 	font-size: 0.7rem;
 	line-height: 1.2;
 	color: var(--text-muted);
+	font-weight: bold;
 	white-space: nowrap;
 	overflow: hidden;
 	background-color: var(--background-modifier-hover);

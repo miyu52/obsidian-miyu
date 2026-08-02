@@ -112,6 +112,8 @@ export const en: Record<string, string> = {
 	'panel.filter.prev': 'Previous filter',
 	'panel.filter.next': 'Next filter',
 	'panel.open-task': 'Open',
+	'panel.complete-task': 'Complete',
+	'panel.uncomplete-task': 'Uncomplete',
 
 	// Statistics panel
 	'stats.today': 'Today',

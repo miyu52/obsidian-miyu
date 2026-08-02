@@ -319,9 +319,13 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
   resets `background-color` and permanently kills the `:hover` rule's
   background; the group header's task count
   badge is a grey pill with a bare number, and the task pomodoro pill is
-  distinguished by a `🍅` emoji prefix (the pill is only rendered when there
-  is a count — an empty pill shows as a stray grey dot). Old
-  `pomodoro-tasks-*` classes were fully removed. (2026-08-02 later pass: inner
+  distinguished by a trailing `🍅` emoji (e.g. `2/3 🍅`; the pill is only
+  rendered when there is a count — an empty pill shows as a stray grey dot).
+  Rows have NO completion checkbox — checked state is shown by line-through +
+  muted text only; right-click a row (or the active-task row) for a menu with
+  打开 / 完成 (toggle: `tracker.toggleComplete` writes `- [ ]` ↔ `- [x]` back
+  to the file at the task's line, then the re-parse refreshes the tree).
+  Old `pomodoro-tasks-*` classes were fully removed. (2026-08-02 later pass: inner
   card borders replaced with `--background-secondary` fills, per-row gradient
   progress removed (later restored, see above), pomodoro counter now a text
   pill like `2/3` instead of 🍅/◌/🥫 emoji. (2026-08-02 third pass: tree mimics
@@ -380,8 +384,12 @@ Output: `main.js` (not committed — in `.gitignore`, uploaded to GitHub release
 - **Stale-file fallbacks (parser):** `load()` runs `syncActiveTask()` in ALL
   branches — including empty/missing-file trees — so deleting the active file
   (or clearing `activeFile`) clears the in-memory active task and its persisted
-  ref instead of leaving a stale row. `vault.on('create')` is also listened to,
-  so recreating a file at the same path as `activeFile` re-parses it.
+  ref instead of leaving a stale row. BUT the restore branch only clears the
+  PERSISTED ref when the tree has `exists: true` — a missing file during
+  startup (vault not ready) must NOT wipe `activeTask`, or the persisted
+  active task is gone before the retry parse succeeds. `vault.on('create')` is
+  also listened to, so recreating a file at the same path as `activeFile`
+  re-parses it.
 - **Startup vault-readiness gotcha:** `vault.getAbstractFileByPath()` may return
   null during plugin `onload` (early startup), which made the task panel show
   "file not found" until a manual reselect. `TaskParser` now re-loads on

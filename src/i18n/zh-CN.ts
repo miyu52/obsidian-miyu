@@ -105,6 +105,8 @@ export const zhCN: Record<string, string> = {
 	'panel.filter.prev': '上一个过滤条件',
 	'panel.filter.next': '下一个过滤条件',
 	'panel.open-task': '打开',
+	'panel.complete-task': '完成',
+	'panel.uncomplete-task': '取消完成',
 
 	// 统计面板
 	'stats.today': '本日',
