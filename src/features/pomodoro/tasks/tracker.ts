@@ -12,8 +12,6 @@ import { DESERIALIZERS } from './serializer';
 import { extractTaskComponents, findLineByBlockLink } from './line-utils';
 import { incrementPomodoroText } from '../pomodoro-count';
 
-const DEFAULT_TRACKER_STATE: TaskTrackerState = {};
-
 /**
  * 活动任务追踪：面板选中的任务（blockLink 定位）+ 会话完成时把番茄数写回文件。
  * 不关心分组/文件归属——只认 blockLink。
@@ -21,7 +19,8 @@ const DEFAULT_TRACKER_STATE: TaskTrackerState = {};
 export class TaskTracker implements Readable<TaskTrackerState> {
 	private plugin: MiyuPlugin;
 
-	private state: TaskTrackerState = DEFAULT_TRACKER_STATE;
+	/** 初始状态每实例新建——不要用模块级共享对象（会被原地 update 污染）。 */
+	private state: TaskTrackerState = { task: undefined };
 
 	private store: Writable<TaskTrackerState>;
 
@@ -47,18 +46,12 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 	/** 激活任务（必要时自动补块 ID）。 */
 	async active(task: TaskItem) {
 		await this.ensureBlockId(task);
-		this.store.update((state) => {
-			state.task = task;
-			return state;
-		});
+		this.store.update(() => ({ task }));
 		this.persist();
 	}
 
 	clear() {
-		this.store.update((state) => {
-			state.task = undefined;
-			return state;
-		});
+		this.store.update(() => ({ task: undefined }));
 		this.persist();
 	}
 
@@ -102,12 +95,16 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 		if (!(file instanceof TFile)) {
 			return;
 		}
-		this.store.update((state) => {
-			if (state.task) {
-				state.task.actualPomodoros += 1;
-			}
-			return state;
-		});
+		this.store.update((state) =>
+			state.task
+				? {
+						task: {
+							...state.task,
+							actualPomodoros: state.task.actualPomodoros + 1,
+						},
+					}
+				: state,
+		);
 		await this.incrTaskActual(this.task.blockLink, file);
 	}
 
@@ -150,10 +147,7 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 			this.state.task?.blockLink &&
 			this.state.task.blockLink === task.blockLink
 		) {
-			this.store.update((state) => {
-				state.task = task;
-				return state;
-			});
+			this.store.update(() => ({ task }));
 		}
 	}
 

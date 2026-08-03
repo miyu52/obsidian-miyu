@@ -114,6 +114,8 @@ export class TaskParser implements Readable<TaskStore> {
 				void this.plugin.saveSettings();
 			}
 			this.lastLoadedPath = activeFile;
+			// 新文件缺失重试从头计数（避免沿用旧文件的已耗尽重试）
+			this.missingRetries = 0;
 		}
 
 		if (!activeFile) {
@@ -187,10 +189,16 @@ export class TaskParser implements Readable<TaskStore> {
 				lines[line] = `${text.trimEnd()} ${makeBlockId()}`;
 			}
 		}
-		void this.plugin.app.vault.modify(file, lines.join('\n')).then(() => {
-			// 延迟重解析：行尾块 ID 直接从内容读取，无需等 metadataCache 更新
-			window.setTimeout(() => this.load(), 100);
-		});
+		void this.plugin.app.vault.modify(file, lines.join('\n')).then(
+			() => {
+				// 延迟重解析：行尾块 ID 直接从内容读取，无需等 metadataCache 更新
+				window.setTimeout(() => this.load(), 100);
+			},
+			(e) => {
+				// 写回失败：不重解析（下次文件变化时自动重试补写）
+				console.error('[miyu] heading block id write-back failed:', e);
+			},
+		);
 	}
 
 	/**
