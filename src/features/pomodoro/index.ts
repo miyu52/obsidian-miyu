@@ -55,7 +55,7 @@ export const pomodoroFeature: MiyuFeature = {
 
 		const statusBarEl = plugin.addStatusBarItem();
 		statusBarEl.className = `${statusBarEl.className} mod-clickable`;
-		const statusBar = new StatusBarTimer(plugin, timer, statusBarEl);
+		const statusBar = new StatusBarTimer(plugin, timer, tracker, statusBarEl);
 
 		plugin.pomodoro = {
 			timer,

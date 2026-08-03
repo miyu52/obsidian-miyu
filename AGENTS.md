@@ -157,7 +157,9 @@ Follow the pomodoro feature as the reference structure.
 - **Commands:** ids `toggle-timer`, `toggle-timer-panel`, `reset-timer`, `toggle-mode`
 - **View:** `miyu-timer-view` in the right sidebar (unique ID so it coexists
   with the old plugin's `timer-view`; reopen the panel once after migrating)
-- **Ribbon:** timer icon toggles the panel; **status bar:** optional timer with context menu
+- **Ribbon:** timer icon toggles the panel; **status bar:** optional timer with
+  context menu; hovering shows a tooltip with the current mode and the active
+  task name (rebuilt only when the content changes — mode, task, or language).
 - **Features:** work/break cycles with autostart, task tracking (TASKS / DATAVIEW formats,
   block IDs, pomodoro counters), heading-grouped task tree (nested, collapsible,
   persisted), session logging (data.json or a `%% miyu:records` file — see

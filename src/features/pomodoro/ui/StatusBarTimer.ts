@@ -3,6 +3,7 @@ import type MiyuPlugin from '../../../main';
 import type { Unsubscriber } from '../../../core/store';
 import { modeLabel, type PomodoroTimer } from '../timer';
 import type { TimerDisplay } from '../types';
+import type { TaskTracker } from '../tasks/tracker';
 import { pomodoroSettings } from '../settings';
 
 const ICON_RUNNING = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-timer"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>`;
@@ -18,6 +19,8 @@ export class StatusBarTimer {
 
 	private timer: PomodoroTimer;
 
+	private tracker: TaskTracker;
+
 	private el: HTMLElement;
 
 	private icon: HTMLElement;
@@ -26,15 +29,20 @@ export class StatusBarTimer {
 
 	private current!: TimerDisplay;
 
+	/** 上次设置的 tooltip 文本（内容未变化不重建）。 */
+	private lastTooltip = '';
+
 	private unsubscribers: Unsubscriber[] = [];
 
 	constructor(
 		plugin: MiyuPlugin,
 		timer: PomodoroTimer,
+		tracker: TaskTracker,
 		container: HTMLElement,
 	) {
 		this.plugin = plugin;
 		this.timer = timer;
+		this.tracker = tracker;
 
 		this.el = container.createSpan({ cls: 'miyu-timer' });
 		this.icon = this.el.createSpan({ cls: 'item-icon' });
@@ -56,23 +64,48 @@ export class StatusBarTimer {
 					? ICON_RUNNING
 					: ICON_IDLE;
 				this.text.setText(state.remainedText);
-				const tooltip = modeLabel(
-					state.mode,
-					this.plugin.settings.language,
-				);
-				setTooltip(this.el, tooltip, {
-					delay: 300,
-					placement: 'top',
-				});
+				this.updateTooltip();
 				this.refreshVisibility();
+			}),
+		);
+
+		// 激活任务变化（激活/清除/同步）→ tooltip 中的任务名更新
+		this.unsubscribers.push(
+			tracker.subscribe(() => {
+				this.updateTooltip();
 			}),
 		);
 
 		this.unsubscribers.push(
 			pomodoroSettings.subscribe(() => {
 				this.refreshVisibility();
+				// 语言切换等设置变化：模式文本可能需要刷新
+				this.updateTooltip();
 			}),
 		);
+	}
+
+	/**
+	 * 更新 tooltip（模式 · 任务名，无任务时只显示模式）。
+	 * 内容未变化时不重建——tick 期间 mode/task 不变就不会重复 setTooltip。
+	 */
+	private updateTooltip() {
+		const plugin = this.plugin;
+		const state = this.current;
+		if (!state) {
+			return;
+		}
+		const mode = modeLabel(state.mode, plugin.settings.language);
+		const taskName = this.tracker?.task?.name;
+		const text = taskName ? `${mode} · ${taskName}` : mode;
+		if (text === this.lastTooltip) {
+			return;
+		}
+		this.lastTooltip = text;
+		setTooltip(this.el, text, {
+			delay: 300,
+			placement: 'top',
+		});
 	}
 
 	private refreshVisibility() {
