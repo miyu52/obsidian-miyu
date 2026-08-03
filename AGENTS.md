@@ -434,7 +434,11 @@ Testing notes:
   `${path}:${headingBlockId}` — the parser auto-appends ` ^xxxx` block ids to
   headings that lack one (one-time write-back, same pattern as task block ids),
   so state survives line shifts above the heading. Switching the active file
-  clears the list (per-file state only). Stale ids are harmlessly ignored.
+  clears the list (per-file state only) — detected via `lastLoadedPath`, which
+  MUST be initialized to the current `activeFile` in the constructor, not `''`
+  (an empty initial value makes the first load misread as a file switch and
+  wipes the persisted expanded state on every restart). Stale ids are pruned
+  after each successful parse (`pruneExpandedSections` + `collectGroupIds`).
   Manual md edits are fully supported because parsing is
   stateless full-rebuild; missing blockLink auto-clears the active task.
 - **Tasks panel UI (`ui/TasksPanel.ts`):** redesigned with the SAME visual

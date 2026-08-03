@@ -47,6 +47,10 @@ export class TaskParser implements Readable<TaskStore> {
 			}),
 		);
 
+		// 启动时以当前激活文件为基准——初始值若为 ''，首次 load 会误判
+		// "切换文件"而清空持久化的展开状态
+		this.lastLoadedPath = plugin.settings.pomodoro.activeFile;
+
 		// 激活文件变化（下拉框/设置）→ 重解析
 		this.unsubscribers.push(
 			pomodoroSettings.subscribe(() => {
