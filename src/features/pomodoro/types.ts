@@ -96,7 +96,7 @@ export interface TaskItem {
 
 /** 标题分组节点（嵌套树）。 */
 export interface TaskGroup {
-	/** `${path}:${headingLine}` —— 折叠状态持久化的键。 */
+	/** `${path}:${headingBlockId}` —— 展开状态持久化的键（块 ID 稳定，行号偏移不影响）。 */
 	id: string;
 	title: string;
 	level: number;

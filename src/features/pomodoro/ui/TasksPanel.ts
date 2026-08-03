@@ -415,16 +415,17 @@ export class TasksPanel {
 	}
 
 	private renderGroup(container: HTMLElement, group: TaskGroup) {
-		const collapsed = this.plugin.settings.pomodoro.collapsedSections.includes(
+		// 默认折叠：展开状态才持久化（expandedSections）
+		const expanded = this.plugin.settings.pomodoro.expandedSections.includes(
 			group.id,
 		);
 
 		const folder = container.createDiv({
-			cls: `miyu-task-group${collapsed ? ' is-collapsed' : ''}`,
+			cls: `miyu-task-group${expanded ? '' : ' is-collapsed'}`,
 		});
 		const header = folder.createDiv({ cls: 'miyu-task-group-title' });
 		const icon = header.createSpan({ cls: 'miyu-task-group-icon' });
-		icon.innerHTML = collapsed ? ICON_FOLDER : ICON_FOLDER_OPEN;
+		icon.innerHTML = expanded ? ICON_FOLDER_OPEN : ICON_FOLDER;
 		header.createDiv({
 			cls: 'miyu-task-group-label',
 			text: group.title,
@@ -435,10 +436,10 @@ export class TasksPanel {
 			text: String(total),
 		});
 		header.addEventListener('click', () => {
-			this.toggleCollapsed(group.id);
+			this.toggleExpanded(group.id);
 		});
 
-		if (collapsed) {
+		if (!expanded) {
 			return;
 		}
 
@@ -451,16 +452,16 @@ export class TasksPanel {
 		}
 	}
 
-	private toggleCollapsed(id: string) {
+	private toggleExpanded(id: string) {
 		const p = this.plugin.settings.pomodoro;
-		const list = [...p.collapsedSections];
+		const list = [...p.expandedSections];
 		const idx = list.indexOf(id);
 		if (idx >= 0) {
 			list.splice(idx, 1);
 		} else {
 			list.push(id);
 		}
-		p.collapsedSections = list;
+		p.expandedSections = list;
 		void this.plugin.saveSettings();
 	}
 
@@ -541,7 +542,7 @@ export class TasksPanel {
 		const menu = new Menu();
 		menu.addItem((item) => {
 			item.setTitle(this.plugin.t('panel.open-task')).onClick(() => {
-				this.tracker.openTask(e, task);
+				void this.tracker.openTask(e, task);
 			});
 		});
 		menu.addItem((item) => {

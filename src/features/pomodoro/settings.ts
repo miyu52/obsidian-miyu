@@ -36,8 +36,8 @@ export interface PomodoroSettings {
 	files: string[];
 	/** 当前激活文件（面板下拉框选择，持久化）。 */
 	activeFile: string;
-	/** 折叠标题的持久化键（TaskGroup.id）。 */
-	collapsedSections: string[];
+	/** 展开的标题分组（默认折叠；键 = `${path}:${headingBlockId}`）。 */
+	expandedSections: string[];
 	/** 任务面板过滤条件（默认待办，持久化）。 */
 	taskFilter: TaskFilter;
 	/** 活动任务定位（null = 无活动任务，持久化）。 */
@@ -63,7 +63,7 @@ export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
 	recordsFile: '',
 	files: [],
 	activeFile: '',
-	collapsedSections: [],
+	expandedSections: [],
 	taskFilter: 'todo',
 	activeTask: null,
 	records: [],

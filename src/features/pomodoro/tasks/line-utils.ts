@@ -40,6 +40,27 @@ export function extractTaskComponents(line: string): TaskComponents | null {
 }
 
 /**
+ * 在文件内容中按行尾块 ID 定位任务行（写回/跳转前的重定位：
+ * 解析时的行号快照在文件被编辑后会漂移，直接索引会改错行）。
+ * blockLink 含前导空格与 `^`（` ^xxxx`）；返回行号，找不到返回 null。
+ */
+export function findLineByBlockLink(
+	content: string,
+	blockLink: string,
+): number | null {
+	if (!blockLink) {
+		return null;
+	}
+	const lines = content.split('\n');
+	for (let i = 0; i < lines.length; i++) {
+		if ((lines[i] ?? '').endsWith(blockLink)) {
+			return i;
+		}
+	}
+	return null;
+}
+
+/**
  * Takes a regex of the form 'key:: value' and turns it into a regex that can
  * parse Dataview inline fields, i.e either:
  *     * (key:: value)

@@ -201,7 +201,7 @@ features must follow the same pattern.
 | `pomodoro.weekStart` | `number \| null` | `0` | Week start day (0=Sun..6=Sat, null=locale) |
 | `pomodoro.files` | `string[]` | `[]` | md files tracked by the panel |
 | `pomodoro.activeFile` | `string` | `''` | Active file (panel dropdown) |
-| `pomodoro.collapsedSections` | `string[]` | `[]` | Collapsed heading ids |
+| `pomodoro.expandedSections` | `string[]` | `[]` | Expanded heading ids (default: collapsed; keyed by heading block id) |
 | `pomodoro.taskFilter` | `TaskFilter` | `'todo'` | Tasks panel filter (`'todo'`/`'completed'`/`'all'`) |
 | `pomodoro.activeTask` | `ActiveTaskRef \| null` | `null` | Active task locator `{path, blockLink}` |
 | `pomodoro.recordsFile` | `string` | `''` | Records storage file ('' = data.json, else `%% miyu:records` block in that md file) |
@@ -319,6 +319,14 @@ Testing notes:
 - **Gotcha (fixed in passing):** `incrTaskActual` used `.trim()` on the whole
   task line, which destroyed the indentation of nested (indented) tasks. It now
   strips trailing whitespace only.
+- **Write-back must re-locate the line by block id:** `TaskTracker` write-back
+  (`toggleComplete`, `ensureBlockId`, `incrTaskActual`) and `openTask` used the
+  parse-time `task.line` snapshot to index into the file — after the file is
+  edited, the line shifts and the write lands on the WRONG line (data damage).
+  All four now go through `locateTaskLine()` (tracker.ts), which re-reads the
+  file and matches the line-end block id (`findLineByBlockLink` in
+  line-utils.ts, pure + tested); tasks without a block id fall back to the
+  parse-time line but only after verifying the line is still a task line.
 - **Known quirk kept on purpose:** a bare `🍅:: 3` (no brackets) is neither parsed
   by the serializer nor incremented by the tracker — bracketed/parenthesized
   forms only. Changing this touches serializer symbols + regex and is a behavior
@@ -421,9 +429,13 @@ Testing notes:
 - **Grouped task tree:** `TaskParser` (tasks/parser.ts) rebuilds the whole tree
   on every file change — headings from `metadataCache.headings`, tasks attach to
   the nearest preceding heading, nested by level; ungrouped tasks go to
-  `topTasks` (rendered first). Collapse state persists in
-  `pomodoro.collapsedSections` keyed by `${path}:${headingLine}`; stale ids are
-  harmlessly ignored. Manual md edits are fully supported because parsing is
+  `topTasks` (rendered first). Sections are **collapsed by default**; the
+  expanded set persists in `pomodoro.expandedSections` keyed by
+  `${path}:${headingBlockId}` — the parser auto-appends ` ^xxxx` block ids to
+  headings that lack one (one-time write-back, same pattern as task block ids),
+  so state survives line shifts above the heading. Switching the active file
+  clears the list (per-file state only). Stale ids are harmlessly ignored.
+  Manual md edits are fully supported because parsing is
   stateless full-rebuild; missing blockLink auto-clears the active task.
 - **Tasks panel UI (`ui/TasksPanel.ts`):** redesigned with the SAME visual
   language as the stats panel (`miyu-tasks-*` / `miyu-task-*` classes: outer

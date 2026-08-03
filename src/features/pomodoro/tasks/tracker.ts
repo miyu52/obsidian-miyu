@@ -9,7 +9,7 @@ import {
 } from '../../../core/store';
 import type { TaskItem, TaskTrackerState } from '../types';
 import { DESERIALIZERS } from './serializer';
-import { extractTaskComponents } from './line-utils';
+import { extractTaskComponents, findLineByBlockLink } from './line-utils';
 import { incrementPomodoroText } from '../pomodoro-count';
 
 const DEFAULT_TRACKER_STATE: TaskTrackerState = {};
@@ -73,15 +73,21 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 		void this.plugin.saveSettings();
 	}
 
-	/** 打开任务所在文件并跳转到任务行。 */
-	openTask = (event: MouseEvent, task: TaskItem) => {
+	/** 打开任务所在文件并跳转到任务行（按块 ID 重定位，失败回退解析时行号）。 */
+	openTask = async (event: MouseEvent, task: TaskItem) => {
 		const file = this.plugin.app.vault.getAbstractFileByPath(task.path);
-		if (file instanceof TFile && task.line >= 0) {
-			const leaf = this.plugin.app.workspace.getLeaf(
-				Keymap.isModEvent(event),
-			);
-			void leaf.openFile(file, { eState: { line: task.line } });
+		if (!(file instanceof TFile)) {
+			return;
 		}
+		const located = await this.locateTaskLine(file, task);
+		const line = located?.lineNr ?? task.line;
+		if (line < 0) {
+			return;
+		}
+		const leaf = this.plugin.app.workspace.getLeaf(
+			Keymap.isModEvent(event),
+		);
+		await leaf.openFile(file, { eState: { line } });
 	};
 
 	/** 会话完成时递增番茄数并写回文件。 */
@@ -111,9 +117,12 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 		if (!(file instanceof TFile) || file.extension !== 'md') {
 			return;
 		}
-		const content = await this.plugin.app.vault.read(file);
-		const lines = content.split('\n');
-		const line = lines[task.line];
+		const located = await this.locateTaskLine(file, task);
+		if (!located) {
+			return;
+		}
+		const { lines, lineNr, content } = located;
+		const line = lines[lineNr];
 		if (line === undefined) {
 			return;
 		}
@@ -124,7 +133,7 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 		if (updated === line) {
 			return;
 		}
-		lines[task.line] = updated;
+		lines[lineNr] = updated;
 		const metadata = this.plugin.app.metadataCache.getFileCache(file);
 		await this.plugin.app.vault.modify(file, lines.join('\n'));
 		this.plugin.app.metadataCache.trigger(
@@ -148,21 +157,57 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 		}
 	}
 
+	/**
+	 * 写回/跳转前在最新文件内容中重定位任务行：
+	 * - 有块 ID → 行尾块 ID 匹配（文件编辑后行号漂移也不影响）
+	 * - 无块 ID → 回退解析时行号，但校验该行仍是任务行（避免写错行）
+	 */
+	private async locateTaskLine(
+		file: TFile,
+		task: TaskItem,
+	): Promise<{ content: string; lines: string[]; lineNr: number } | null> {
+		if (task.blockLink) {
+			return this.locateTaskLineByBlockLink(file, task.blockLink);
+		}
+		const content = await this.plugin.app.vault.read(file);
+		const lines = content.split('\n');
+		const lineNr = task.line;
+		if (
+			lineNr >= 0 &&
+			lineNr < lines.length &&
+			extractTaskComponents(lines[lineNr] ?? '') !== null
+		) {
+			return { content, lines, lineNr };
+		}
+		return null;
+	}
+
+	/** 按块 ID 在最新内容中定位任务行（写回前必须重定位，行号快照会漂移）。 */
+	private async locateTaskLineByBlockLink(
+		file: TFile,
+		blockLink: string,
+	): Promise<{ content: string; lines: string[]; lineNr: number } | null> {
+		const content = await this.plugin.app.vault.read(file);
+		const lines = content.split('\n');
+		const lineNr = findLineByBlockLink(content, blockLink);
+		return lineNr !== null ? { content, lines, lineNr } : null;
+	}
+
 	private async ensureBlockId(task: TaskItem) {
 		const file = this.plugin.app.vault.getAbstractFileByPath(task.path);
 		if (!(file instanceof TFile) || file.extension !== 'md') {
 			return;
 		}
-		const content = await this.plugin.app.vault.read(file);
-		const lines = content.split('\n');
-		if (lines.length <= task.line) {
+		const located = await this.locateTaskLine(file, task);
+		if (!located) {
 			return;
 		}
-		const line = lines[task.line] ?? '';
+		const { lines, lineNr } = located;
+		const line = lines[lineNr] ?? '';
 		if (task.blockLink) {
 			if (!line.endsWith(task.blockLink)) {
 				// block id mismatch
-				lines[task.line] = line + task.blockLink;
+				lines[lineNr] = line + task.blockLink;
 				void this.plugin.app.vault.modify(file, lines.join('\n'));
 			}
 			return;
@@ -170,7 +215,7 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 		// 生成块 ID
 		const blockId = ` ^${Math.random().toString(36).substring(2, 6)}`;
 		task.blockLink = blockId;
-		lines[task.line] = line + blockId;
+		lines[lineNr] = line + blockId;
 		void this.plugin.app.vault.modify(file, lines.join('\n'));
 	}
 
@@ -179,57 +224,41 @@ export class TaskTracker implements Readable<TaskTrackerState> {
 			return;
 		}
 		const format = this.plugin.settings.pomodoro.taskFormat;
-		const metadata = this.plugin.app.metadataCache.getFileCache(file);
-		const content = await this.plugin.app.vault.read(file);
-		if (!content || !metadata) {
+		const located = await this.locateTaskLineByBlockLink(file, blockLink);
+		if (!located) {
+			return;
+		}
+		const { lines, lineNr, content } = located;
+		const line = lines[lineNr] ?? '';
+		const components = extractTaskComponents(line);
+		if (!components) {
 			return;
 		}
 
-		const lines = content.split('\n');
-		for (const rawElement of metadata.listItems || []) {
-			if (!rawElement.task) {
-				continue;
-			}
-			const lineNr = rawElement.position.start.line;
-			const line = lines[lineNr];
-			if (line === undefined) {
-				continue;
-			}
-			const components = extractTaskComponents(line);
-			if (!components || components.blockLink !== blockLink) {
-				continue;
-			}
-
-			let updated: string;
-			const next = incrementPomodoroText(components.body);
-			if (next !== components.body) {
-				// 只去尾部空白——整行 trim() 会误删嵌套任务的缩进
-				updated = line
-					.replace(components.body, next)
-					.replace(/\s+$/, '');
-			} else {
-				const detail = DESERIALIZERS[format].deserialize(
-					components.body,
-				);
-				updated = line.replace(
-					detail.description,
-					`${detail.description} [🍅:: 1]`,
-				);
-			}
-
-			lines[lineNr] = updated;
-			await this.plugin.app.vault.modify(file, lines.join('\n'));
-			this.plugin.app.metadataCache.trigger(
-				'changed',
-				file,
-				content,
-				metadata,
+		let updated: string;
+		const next = incrementPomodoroText(components.body);
+		if (next !== components.body) {
+			// 只去尾部空白——整行 trim() 会误删嵌套任务的缩进
+			updated = line.replace(components.body, next).replace(/\s+$/, '');
+		} else {
+			const detail = DESERIALIZERS[format].deserialize(components.body);
+			updated = line.replace(
+				detail.description,
+				`${detail.description} [🍅:: 1]`,
 			);
-			this.plugin.app.workspace
-				.getActiveViewOfType(MarkdownView)
-				?.load();
-			break;
 		}
+
+		lines[lineNr] = updated;
+		await this.plugin.app.vault.modify(file, lines.join('\n'));
+		this.plugin.app.metadataCache.trigger(
+			'changed',
+			file,
+			content,
+			this.plugin.app.metadataCache.getFileCache(file),
+		);
+		this.plugin.app.workspace
+			.getActiveViewOfType(MarkdownView)
+			?.load();
 	}
 
 	destroy() {
