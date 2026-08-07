@@ -138,6 +138,24 @@ describe('SessionStore queries', () => {
 		expect(moment(start).day()).toBe(1);
 	});
 
+	it('weekStartOf never lands in the NEXT week when the configured start day is earlier than the locale start day', () => {
+		// 回归：locale 首日 = 周一，设置周首日 = 周日——旧算法
+		// startOf('week') + add() 会算到"下周"（未来一周）
+		const { deps } = makeDeps();
+		const store = new SessionStore(deps);
+		deps.settings.pomodoro.weekStart = 0; // Sunday, locale starts Monday
+		const now = moment('2026-08-07'); // Friday
+		const start = store.weekStartOf(now);
+		expect(moment(start).format('YYYY-MM-DD')).toBe('2026-08-02');
+		expect(moment(start).day()).toBe(0);
+		// 起点必须不晚于 now（包含 now 的周）
+		expect(start).toBeLessThanOrEqual(now.valueOf());
+		// 且 now 落在该周内
+		expect(now.valueOf()).toBeLessThan(
+			moment(start).add(7, 'days').valueOf(),
+		);
+	});
+
 	it('tasksByDay groups and sorts by count', () => {
 		const dayKey = moment().format('YYYY-MM-DD');
 		const { deps } = makeDeps([

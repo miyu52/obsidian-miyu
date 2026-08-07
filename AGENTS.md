@@ -514,6 +514,12 @@ Testing notes:
   changed externally, so `moment.weekdaysShort()` etc. can flip language at
   runtime. Weekday labels must come from the plugin i18n (`stats.weekday.N`)
   and day names never from moment.
+- **Week start must subtract, not add:** `SessionStore.weekStartOf()` walks
+  BACK from `now` to the configured start day (`(now.day() - weekStartDow + 7) % 7`
+  then subtract) — the old `startOf('week')` + `add(shift)` produced the NEXT
+  week whenever the configured start day was earlier than the locale's start
+  day (e.g. locale Monday + configured Sunday → the weekly chart showed the
+  future week). `moment().day()` is locale-independent; regression-tested.
 - **Task tracking behaviors:** `timeup()` must call `tracker.updateActual()` for
   completed WORK sessions (writes `🍅::` counts back to the file) — it was
   accidentally dropped once in a refactor. `reset()` only resets the timer and

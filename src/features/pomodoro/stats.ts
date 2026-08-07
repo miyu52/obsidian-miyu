@@ -213,12 +213,13 @@ export class SessionStore {
 		return custom ?? moment.localeData().firstDayOfWeek();
 	}
 
-	/** 包含 now 的周起点（epoch ms）。 */
+	/** 包含 now 的周起点（epoch ms）。从 now 往回退到 weekStart 那天——
+	 * 不能用 locale 的 startOf('week') 再向前加：当设置的周首日早于
+	 * locale 首日时会落到"下一周"（方向错误）。moment().day() 返回
+	 * 真实星期几（0=周日），与 locale 无关，直接用它回退。 */
 	weekStartOf(now: ReturnType<typeof moment> = moment()): number {
-		const localeStart = moment(now).startOf('week');
-		const shift =
-			(this.weekStartDow() - moment.localeData().firstDayOfWeek() + 7) % 7;
-		return localeStart.add(shift, 'days').valueOf();
+		const shift = (moment(now).day() - this.weekStartDow() + 7) % 7;
+		return moment(now).startOf('day').subtract(shift, 'days').valueOf();
 	}
 
 	/** 本日 / 本周 / 本月 / 总计 番茄数。 */
